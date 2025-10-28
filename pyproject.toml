@@ -7,7 +7,7 @@ name = "hikari-ongaku"
 requires-python = ">=3.10.0,<3.14"
 dependencies = [
     "hikari ~= 2.3.3",
-    "aiohttp ~= 3.11.0"
+    "aiohttp ~= 3.13.2"
 ]
 dynamic = [
     "version",
