@@ -33,14 +33,14 @@ You can create a new one, or you can use a pre-existing one (from a player.)
 
 !!! tip
     If you create a new one, then it will override pre-existing settings on the player.
-    If you don't want it to do that, use the `From Player` method shown above!
+    If you don't want it to do that, use the `from_filter` method shown above!
 
 ## Functions
 
 There is quite a few filters, and almost all have these two methods.
 
- * set_xxxx - This allows you to set new values to the filter.
- * clear_xxxx - This will completely clear the values from that filter.
+ * `set_xxxx` - This allows you to set new values to the filter.
+ * `clear_xxxx` - This will completely clear the values from that filter.
 
 !!! warning
     clear != reset. Clearing sets the value to `None` which **will** override existing values.

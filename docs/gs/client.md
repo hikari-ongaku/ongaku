@@ -21,7 +21,7 @@ Below is some examples of how to use the client within a bot setup.
     ```py
     @arc.slash_command("name", "description")
     async def some_command(ctx: arc.GatewayContext, client: ongaku.Client = arc.inject()) -> None:
-        player = await client.fetch_player(...)
+        player = client.get_player(...)
 
         await player.play(...)
     ```
@@ -49,7 +49,7 @@ Below is some examples of how to use the client within a bot setup.
     @crescent.command("name", "description")
     class SomeCommand:
         async def callback(self, ctx: crescent.Context) -> None:
-            player = await ctx.client.model.ongaku.fetch_player(...)
+            player = ctx.client.model.ongaku.get_player(...)
 
             await player.play(...)
     ```
@@ -72,7 +72,7 @@ Below is some examples of how to use the client within a bot setup.
     @lightbulb.command("name", "description", auto_defer=False)
     @lightbulb.implements(lightbulb.SlashCommand)
     async def some_command(ctx: lightbulb.SlashContext) -> None:
-        player = await ctx.bot.d.ongaku.fetch_player(...)
+        player = ctx.bot.d.ongaku.get_player(...)
 
         await player.play(...)
     ```
@@ -95,10 +95,10 @@ Below is some examples of how to use the client within a bot setup.
     ```py
     @tanjun.as_slash_command("name", "description")
     async def some_command(ctx: tanjun.abc.SlashContext, client: ongaku.Client = alluka.inject()) -> None:
-        player = await client.fetch_player(...)
+        player = client.get_player(...)
 
         await player.play(...)
     ```
 
 !!! note
-    To actually play any tracks, you will need to make sure you have [added a session](session.md#adding-a-new-session-to-the-session-handler) and also need to [fetch a track](player.md#getting-tracks).
+    To actually play any tracks, you will need to make sure you have [added a session](session.md#adding-a-session) and also need to [fetch a track](player.md#getting-tracks).

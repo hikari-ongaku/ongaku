@@ -1,6 +1,6 @@
 ---
 title: Injection
-description: Extra functions for injection related tasks.
+description: Extra functions for injection control.
 ---
 
 # Injection

@@ -1,6 +1,6 @@
 ---
 title: Checker
-description: Check queries to detect if they are links, and if they are supported via lavalink.
+description: Check for valid lavalink supported links.
 ---
 
 # Checker

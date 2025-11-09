@@ -1,6 +1,6 @@
 ---
 title: YouTube
-description: Extra endpoints related to youtube.
+description: Extra endpoints and functions for the YouTube plugin.
 ---
 
 # YouTube

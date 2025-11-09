@@ -87,6 +87,7 @@ markdown_extensions:
   - pymdownx.emoji:
       emoji_index: !!python/name:material.extensions.emoji.twemoji
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - footnotes
 
 
 copyright: Copyright &copy; 2023-present MPlaty
@@ -108,7 +109,7 @@ nav:
     - Session: gs/session.md
     - Filters: gs/filters.md
     - Injection: gs/injection.md
-    - Plugins: gs/plugins.md
+    - Extensions: gs/extensions.md
   - API Reference:
     - api/index.md
     - Client: api/client.md
@@ -140,7 +141,6 @@ nav:
     - Checker: ext/checker.md
     - Injection: ext/injection.md
     - Youtube: ext/youtube.md
-    - Other: ext/other.md
   - Changelog: changelog.md
 
 
