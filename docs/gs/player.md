@@ -229,7 +229,7 @@ There is a few options for pausing the tracks.
 
 === "Force playing"
 
-    The following method will force play the player, whether it is playing or not.
+    The following method will force play the player, whether it is playing.
 
     ```py
     await player.pause(False)
@@ -237,7 +237,7 @@ There is a few options for pausing the tracks.
 
 === "Force pausing"
 
-    The following method will force pause the player, whether it is playing or not.
+    The following method will force pause the player, whether it is playing.
 
     ```py
     await player.pause(True)
@@ -368,7 +368,7 @@ There is a few options for pausing the tracks.
 
 === "Force looping"
 
-    The following method will force loop the player, whether it is looping or not.
+    The following method will force loop the player, whether it is looping.
 
     ```py
     player.set_loop(False)
@@ -376,7 +376,7 @@ There is a few options for pausing the tracks.
 
 === "Force disable looping"
 
-    The following method will force loop the player, whether it is looping or not.
+    The following method will force loop the player, whether it is looping.
 
     ```py
     player.set_loop(True)

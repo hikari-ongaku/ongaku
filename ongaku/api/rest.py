@@ -66,7 +66,7 @@ class RESTClient:
         self,
         query: str,
         *,
-        session: session.ControllableSession | None = None,
+        session: session.Session | None = None,
     ) -> Playlist | typing.Sequence[Track] | Track | None:
         """Load track.
 
@@ -91,8 +91,8 @@ class RESTClient:
 
         Raises
         ------
-        NoSessionsError
-            Raised when there is no available sessions for this request to take place.
+        SessionClientSessionMissingError
+            Raised when the client session has not been set.
         TimeoutError
             Raised when the request takes too long to respond.
         RestEmptyError
@@ -128,9 +128,7 @@ class RESTClient:
         )
 
         if not isinstance(response, typing.Mapping):
-            raise TypeError(
-                "Unexpected response type.",
-            )  # FIXME: I am not sure I like this error.  # noqa: TD001, TD002, TD003
+            raise errors.BuildTypeError(typing.Mapping, type(response))
 
         load_type: str = response["loadType"]
 
@@ -154,16 +152,14 @@ class RESTClient:
                 response["data"],
             )
 
-        raise errors.BuildError(
-            f"Unknown load type: `{load_type}`.",
-        ) from None
+        raise errors.BuildUnknownVariantError(load_type)
 
     async def decode_track(
         self,
         track: str,
         /,
         *,
-        session: session.ControllableSession | None = None,
+        session: session.Session | None = None,
     ) -> Track:
         """Decode track.
 
@@ -188,8 +184,8 @@ class RESTClient:
 
         Raises
         ------
-        NoSessionsError
-            Raised when there is no available sessions for this request to take place.
+        SessionClientSessionMissingError
+            Raised when the client session has not been set.
         TimeoutError
             Raised when the request takes too long to respond.
         RestEmptyError
@@ -219,7 +215,7 @@ class RESTClient:
         )
 
         if not isinstance(response, typing.Mapping):
-            raise TypeError("Unexpected response type.")
+            raise errors.BuildTypeError(typing.Mapping, type(response))
 
         return self._client.builder.deserialize_track(response)
 
@@ -227,7 +223,7 @@ class RESTClient:
         self,
         tracks: typing.Sequence[str],
         *,
-        session: session.ControllableSession | None = None,
+        session: session.Session | None = None,
     ) -> typing.Sequence[Track]:
         """Decode tracks.
 
@@ -252,8 +248,8 @@ class RESTClient:
 
         Raises
         ------
-        NoSessionsError
-            Raised when there is no available sessions for this request to take place.
+        SessionClientSessionMissingError
+            Raised when the client session has not been set.
         TimeoutError
             Raised when the request takes too long to respond.
         RestEmptyError
@@ -284,7 +280,7 @@ class RESTClient:
         )
 
         if not isinstance(response, typing.Sequence):
-            raise TypeError("Unexpected response type.")
+            raise errors.BuildTypeError(typing.Sequence, type(response))
 
         return [self._client.builder.deserialize_track(track) for track in response]
 
@@ -293,8 +289,8 @@ class RESTClient:
         session_id: str,
         guild: hikari.SnowflakeishOr[hikari.Guild],
         *,
-        session: session.ControllableSession | None = None,
-    ) -> player.Player:
+        session: session.Session | None = None,
+    ) -> player.PartialPlayer:
         """Fetch player.
 
         Fetches a specific player from the specified session.
@@ -320,8 +316,8 @@ class RESTClient:
 
         Raises
         ------
-        NoSessionsError
-            Raised when there is no available sessions for this request to take place.
+        SessionClientSessionMissingError
+            Raised when the client session has not been set.
         TimeoutError
             Raised when the request takes too long to respond.
         RestEmptyError
@@ -337,7 +333,7 @@ class RESTClient:
 
         Returns
         -------
-        Player
+        PartialPlayer
             The player object.
         """
         route = routes.GET_PLAYER.build(
@@ -353,7 +349,7 @@ class RESTClient:
         )
 
         if not isinstance(response, typing.Mapping):
-            raise TypeError("Unexpected response type.")
+            raise errors.BuildTypeError(typing.Mapping, type(response))
 
         return self._client.builder.deserialize_player(response)
 
@@ -361,8 +357,8 @@ class RESTClient:
         self,
         session_id: str,
         *,
-        session: session.ControllableSession | None = None,
-    ) -> typing.Sequence[player.Player]:
+        session: session.Session | None = None,
+    ) -> typing.Sequence[player.PartialPlayer]:
         """Fetch players.
 
         Fetches all players from the specified session.
@@ -387,8 +383,8 @@ class RESTClient:
 
         Raises
         ------
-        NoSessionsError
-            Raised when there is no available sessions for this request to take place.
+        SessionClientSessionMissingError
+            Raised when the client session has not been set.
         TimeoutError
             Raised when the request takes too long to respond.
         RestEmptyError
@@ -404,7 +400,7 @@ class RESTClient:
 
         Returns
         -------
-        typing.Sequence[Player]
+        typing.Sequence[PartialPlayer]
             The Sequence of player objects.
         """
         route = routes.GET_PLAYERS.build(session_id=session_id)
@@ -417,11 +413,11 @@ class RESTClient:
         )
 
         if not isinstance(response, typing.Sequence):
-            raise TypeError("Unexpected response type.")
+            raise errors.BuildTypeError(typing.Mapping, type(response))
 
         return [self._client.builder.deserialize_player(player) for player in response]
 
-    async def update_player(
+    async def update_player(  # noqa: PLR0912, PLR0913, C901
         self,
         session_id: str,
         guild: hikari.SnowflakeishOr[hikari.Guild],
@@ -434,8 +430,8 @@ class RESTClient:
         filters: hikari.UndefinedNoneOr[builders.FiltersBuilder] = hikari.UNDEFINED,
         voice: hikari.UndefinedOr[player.Voice] = hikari.UNDEFINED,
         no_replace: bool = True,
-        session: session.ControllableSession | None = None,
-    ) -> player.Player:
+        session: session.Session | None = None,
+    ) -> player.PartialPlayer:
         """Update player.
 
         Update a specific player from the specified session.
@@ -468,23 +464,22 @@ class RESTClient:
         volume
             The volume of the player.
         paused
-            Whether or not to pause the player.
+            Whether to pause the player.
         filters
             The filters to apply to the player.
         voice
             The player voice object you wish to set.
         no_replace
-            Whether or not the track can be replaced.
+            Whether the track can be replaced.
         session
             If provided, the session to use for this request.
 
         Raises
         ------
         ValueError
-            Raised when nothing new has been set,
-            or when `session_id` or `guild_id` is missing.
-        NoSessionsError
-            Raised when there is no available sessions for this request to take place.
+            Raised when nothing new has been set.
+        SessionClientSessionMissingError
+            Raised when the client session has not been set.
         TimeoutError
             Raised when the request takes too long to respond.
         RestEmptyError
@@ -500,7 +495,7 @@ class RESTClient:
 
         Returns
         -------
-        Player
+        PartialPlayer
             The player object.
         """
         if (
@@ -512,7 +507,7 @@ class RESTClient:
             and filters is hikari.UNDEFINED
             and voice is hikari.UNDEFINED
         ):
-            raise ValueError("One or more of the undefined values must be set.")
+            raise ValueError
 
         patch_data: typing.MutableMapping[str, typing.Any] = {}
 
@@ -570,7 +565,7 @@ class RESTClient:
         )
 
         if not isinstance(response, typing.Mapping):
-            raise TypeError("Unexpected response type.")
+            raise errors.BuildTypeError(typing.Mapping, type(response))
 
         return self._client.builder.deserialize_player(response)
 
@@ -579,7 +574,7 @@ class RESTClient:
         session_id: str,
         guild: hikari.SnowflakeishOr[hikari.Guild],
         *,
-        session: session.ControllableSession | None = None,
+        session: session.Session | None = None,
     ) -> None:
         """Delete player.
 
@@ -604,8 +599,8 @@ class RESTClient:
 
         Raises
         ------
-        NoSessionsError
-            Raised when there is no available sessions for this request to take place.
+        SessionClientSessionMissingError
+            Raised when the client session has not been set.
         TimeoutError
             Raised when the request takes too long to respond.
         RestEmptyError
@@ -635,8 +630,8 @@ class RESTClient:
         *,
         resuming: bool | None = None,
         timeout: int | None = None,
-        session: session.ControllableSession | None = None,
-    ) -> session.Session:
+        session: session.Session | None = None,
+    ) -> session.PartialSession:
         """Update Session.
 
         Update the lavalink session.
@@ -654,7 +649,7 @@ class RESTClient:
         session_id
             The session you wish to update.
         resuming
-            Whether resuming is enabled for this session or not.
+            Whether resuming is enabled for this session.
         timeout
             The timeout in seconds (default is 60s)
         session
@@ -662,8 +657,8 @@ class RESTClient:
 
         Raises
         ------
-        NoSessionsError
-            Raised when there is no available sessions for this request to take place.
+        SessionClientSessionMissingError
+            Raised when the client session has not been set.
         TimeoutError
             Raised when the request takes too long to respond.
         RestEmptyError
@@ -679,7 +674,7 @@ class RESTClient:
 
         Returns
         -------
-        Session
+        PartialSession
             The Session object.
         """
         route = routes.PATCH_SESSION_UPDATE.build(session_id=session_id)
@@ -702,14 +697,14 @@ class RESTClient:
         )
 
         if not isinstance(response, typing.Mapping):
-            raise TypeError("Unexpected response type.")
+            raise errors.BuildTypeError(typing.Mapping, type(response))
 
         return self._client.builder.deserialize_session(response)
 
     async def fetch_info(
         self,
         *,
-        session: session.ControllableSession | None = None,
+        session: session.Session | None = None,
     ) -> information.Information:
         """Fetch information.
 
@@ -732,8 +727,8 @@ class RESTClient:
 
         Raises
         ------
-        NoSessionsError
-            Raised when there is no available sessions for this request to take place.
+        SessionClientSessionMissingError
+            Raised when the client session has not been set.
         TimeoutError
             Raised when the request takes too long to respond.
         RestEmptyError
@@ -760,14 +755,14 @@ class RESTClient:
         response = await session.request(route)
 
         if not isinstance(response, typing.Mapping):
-            raise TypeError("Unexpected response type.")
+            raise errors.BuildTypeError(typing.Mapping, type(response))
 
         return self._client.builder.deserialize_information(response)
 
     async def fetch_version(
         self,
         *,
-        session: session.ControllableSession | None = None,
+        session: session.Session | None = None,
     ) -> str:
         """Fetch version.
 
@@ -790,8 +785,8 @@ class RESTClient:
 
         Raises
         ------
-        NoSessionsError
-            Raised when there is no available sessions for this request to take place.
+        SessionClientSessionMissingError
+            Raised when the client session has not been set.
         TimeoutError
             Raised when the request takes too long to respond.
         RestEmptyError
@@ -816,14 +811,14 @@ class RESTClient:
         response = await session.request(route)
 
         if not isinstance(response, str):
-            raise TypeError("Unexpected response type.")
+            raise errors.BuildTypeError(str, type(response))
 
         return response
 
     async def fetch_statistics(
         self,
         *,
-        session: session.ControllableSession | None = None,
+        session: session.Session | None = None,
     ) -> statistics.Statistics:
         """Fetch statistics.
 
@@ -849,8 +844,8 @@ class RESTClient:
 
         Raises
         ------
-        NoSessionsError
-            Raised when there is no available sessions for this request to take place.
+        SessionClientSessionMissingError
+            Raised when the client session has not been set.
         TimeoutError
             Raised when the request takes too long to respond.
         RestEmptyError
@@ -877,14 +872,14 @@ class RESTClient:
         response = await session.request(route)
 
         if not isinstance(response, typing.Mapping):
-            raise TypeError("Unexpected response type.")
+            raise errors.BuildTypeError(typing.Mapping, type(response))
 
         return self._client.builder.deserialize_statistics(response)
 
     async def fetch_routeplanner_status(
         self,
         *,
-        session: session.ControllableSession | None = None,
+        session: session.Session | None = None,
     ) -> routeplanner.RoutePlannerStatus | None:
         """Fetch routeplanner status.
 
@@ -908,8 +903,8 @@ class RESTClient:
 
         Raises
         ------
-        NoSessionsError
-            Raised when there is no available sessions for this request to take place.
+        SessionClientSessionMissingError
+            Raised when the client session has not been set.
         TimeoutError
             Raised when the request takes too long to respond.
         RestEmptyError
@@ -941,7 +936,7 @@ class RESTClient:
             return None
 
         if not isinstance(response, typing.Mapping):
-            raise TypeError("Unexpected response type.")
+            raise errors.BuildTypeError(typing.Mapping, type(response))
 
         return self._client.builder.deserialize_routeplanner_status(response)
 
@@ -949,7 +944,7 @@ class RESTClient:
         self,
         address: str,
         *,
-        session: session.ControllableSession | None = None,
+        session: session.Session | None = None,
     ) -> None:
         """Free routeplanner address.
 
@@ -972,8 +967,8 @@ class RESTClient:
 
         Raises
         ------
-        NoSessionsError
-            Raised when there is no available sessions for this request to take place.
+        SessionClientSessionMissingError
+            Raised when the client session has not been set.
         TimeoutError
             Raised when the request takes too long to respond.
         RestEmptyError
@@ -995,7 +990,7 @@ class RESTClient:
     async def update_all_routeplanner_addresses(
         self,
         *,
-        session: session.ControllableSession | None = None,
+        session: session.Session | None = None,
     ) -> None:
         """Free all routeplanner addresses.
 
@@ -1016,8 +1011,8 @@ class RESTClient:
 
         Raises
         ------
-        NoSessionsError
-            Raised when there is no available sessions for this request to take place.
+        SessionClientSessionMissingError
+            Raised when the client session has not been set.
         TimeoutError
             Raised when the request takes too long to respond.
         RestEmptyError

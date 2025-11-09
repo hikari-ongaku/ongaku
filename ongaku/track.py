@@ -115,6 +115,11 @@ class Track:
             and self.requestor == other.requestor
         )
 
+    def __hash__(self) -> int:
+        return hash(
+            (self.encoded, self.info, self.plugin_info, self.user_data, self.requestor),
+        )
+
 
 class TrackInfo:
     """Track Information.
@@ -236,6 +241,23 @@ class TrackInfo:
             and self.uri == other.uri
             and self.artwork_url == other.artwork_url
             and self.isrc == other.isrc
+        )
+
+    def __hash__(self) -> int:
+        return hash(
+            (
+                self.identifier,
+                self.is_seekable,
+                self.author,
+                self.length,
+                self.is_stream,
+                self.position,
+                self.title,
+                self.source_name,
+                self.uri,
+                self.artwork_url,
+                self.isrc,
+            ),
         )
 
 

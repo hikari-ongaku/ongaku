@@ -1,17 +1,23 @@
 from __future__ import annotations
 
+import typing
 from unittest import mock
 
-import arc
 import hikari
 import pytest
 
 from ongaku import errors
+from ongaku import player as player_
 from ongaku.abc.extensions import Extension
 from ongaku.api import builders
 from ongaku.api import rest
 from ongaku.client import Client
-from ongaku.player import ControllablePlayer
+from ongaku.session import Session
+
+if typing.TYPE_CHECKING:
+    import arc
+
+    from ongaku.abc.events import OngakuEvent
 
 
 @pytest.fixture
@@ -129,10 +135,10 @@ class TestClient:
         assert client.is_alive is True
 
     @pytest.mark.asyncio
-    async def test__arc_player_injector(  # FIXME: Remake this test.  # noqa: FIX001, TD001, TD003
+    async def test__arc_player_injector(
         self,
         client: Client,
-        ongaku_player: ControllablePlayer,
+        ongaku_player: player_.Player,
     ):
         context: arc.GatewayContext = mock.Mock()
 
@@ -153,28 +159,23 @@ class TestClient:
             patched_get_player.assert_called_once_with(context.guild_id)
 
             patched_set_type_dependency.assert_called_once_with(
-                ControllablePlayer,
+                player_.Player,
                 ongaku_player,
             )
 
     @pytest.mark.asyncio
-    async def test__arc_player_with_missing_guild_id(  # FIXME: Remake this test.  # noqa: FIX001, TD001, TD003
+    async def test__arc_player_with_missing_guild_id(
         self,
-        hikari_app: hikari.GatewayBotAware,
         client: Client,
     ):
-        arc_client = arc.GatewayClient(hikari_app)
-
         context: arc.GatewayContext = mock.Mock(guild_id=None)
 
-        inj_context: arc.InjectorOverridingContext = arc.InjectorOverridingContext(
-            arc_client.injector.make_context(),
-        )
+        inj_context: arc.InjectorOverridingContext = mock.Mock()
 
         with (
             mock.patch(
                 "ongaku.client.Client.get_player",
-                return_value=None,
+                mock.Mock(),
             ) as patched_get_player,
             mock.patch.object(
                 inj_context,
@@ -183,14 +184,12 @@ class TestClient:
         ):
             await client._arc_player_injector(context, inj_context)
 
-        assert patched_get_player.assert_not_called()
+        patched_get_player.assert_not_called()
 
-        assert patched_set_type_dependency.assert_not_called()
-
-        assert inj_context.get_type_dependency(ControllablePlayer) is None
+        patched_set_type_dependency.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test__arc_player_with_missing_player(  # FIXME: Remake this test.  # noqa: FIX001, TD001, TD003
+    async def test__arc_player_with_missing_player(
         self,
         client: Client,
     ):
@@ -227,7 +226,19 @@ class TestClient:
                 password="session_password",
             )
 
-        patched_add_session.assert_called_once()  # FIXME: This should check the session correctly.  # noqa: TD001, TD002, TD003
+        patched_calls = patched_add_session.call_args_list
+
+        assert len(patched_calls) == 1
+        patched_call = patched_calls[0]
+
+        patched_call_arg = patched_call.kwargs["session"]
+
+        assert isinstance(patched_call_arg, Session)
+        assert patched_call_arg.name == "session"
+        assert patched_call_arg.ssl is False
+        assert patched_call_arg.host == "1.2.3.4"
+        assert patched_call_arg.port == 1234
+        assert patched_call_arg.password == "session_password"
 
     def test_get_session(self, client: Client):
         with (
@@ -284,7 +295,7 @@ class TestClient:
         ):
             assert client.get_player(123) == patched_get_player.return_value
 
-        patched_get_player.assert_called_once_with(name="test_session")
+        patched_get_player.assert_called_once_with(guild=123)
 
     @pytest.mark.asyncio
     async def test_delete_player(self, client: Client):
@@ -296,9 +307,9 @@ class TestClient:
                 new_callable=mock.AsyncMock,
             ) as patched_delete_player,
         ):
-            await client.delete_session("test_player")
+            await client.delete_player(123)
 
-        patched_delete_player.assert_called_once_with(name="test_player")
+        patched_delete_player.assert_called_once_with(guild=123)
 
     def test_create_extension(self, client: Client):
         mock_extension = mock.Mock()
@@ -322,7 +333,13 @@ class TestClient:
         )
 
     def test_create_extension_with_type(self, client: Client):
-        mock_extension = mock.Mock
+        class MockExtension(Extension):
+            def event_handler(
+                self,
+                payload: typing.Mapping[str, typing.Any],  # noqa: ARG002
+                session: Session,  # noqa: ARG002
+            ) -> OngakuEvent | None:
+                return None
 
         assert client._extensions == set()
 
@@ -333,11 +350,19 @@ class TestClient:
                 "set_type_dependency",
             ) as patched_set_type_dependency,
         ):
-            client.create_extension(mock_extension)
+            client.create_extension(MockExtension)
 
-        assert client._extensions == {mock_extension}
+        assert len(client._extensions) == 1
+        assert client._extensions == {MockExtension}
 
-        patched_set_type_dependency.assert_called_once()  # FIXME: Not sure if I can even test this properly.  # noqa: TD001, TD002, TD003
+        patched_calls = patched_set_type_dependency.call_args_list
+
+        assert len(patched_calls) == 1
+
+        patched_call_1 = patched_calls[0]
+        assert len(patched_call_1.args) == 2
+        assert patched_call_1.args[0] == MockExtension
+        assert isinstance(patched_call_1.args[1], MockExtension)
 
     def test_get_extension(self, client: Client):
         mock_extension = mock.Mock

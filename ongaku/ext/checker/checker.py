@@ -278,7 +278,7 @@ def check(query: str) -> Sites | None:
             r"^(?:http:\/\/|https:\/\/|)(?:www\.|m\.|)youtube\.com\/live\/.*",
         ],
         Sites.YOUTUBE_MUSIC: r"^(?:http:\/\/|https:\/\/|)music\.youtube\.com\/.*",
-        Sites.BANDCAMP: r"^(https?:\/\/(?:[^.]+\.|)bandcamp\.com)\/(track|album)\/([a-zA-Z0-9-_]+)\/?(?:\\?.*|)$",
+        Sites.BANDCAMP: r"^(https?:\/\/(?:[^.]+\.|)bandcamp\.com)\/(track|album)\/([a-zA-Z0-9-_]+)\/?(?:\\?.*|)$",  # noqa: E501
         Sites.SOUNDCLOUD: [
             r"^https?:\/\/soundcloud\.app\.goo\.gl\/([a-zA-Z0-9-_]+)\/?(?:\?.*|)$",
             r"^https?:\/\/(?:www\.|)(?:m\.|)soundcloud\.com\/([a-zA-Z0-9-_]+)\/([a-zA-Z0-9-_]+)\/?(?:\?.*|)$",
@@ -288,10 +288,10 @@ def check(query: str) -> Sites | None:
         ],
         Sites.TWITCH: r"^https:\/\/(?:www\.|go\.|m\.)?twitch\.tv\/([^/]+)$",
         Sites.VIMEO: r"^https?:\/\/vimeo\.com\/([0-9]+)(?:\?.*|)$",
-        Sites.NICO: r"^(https?:\/\/)?(?:www\.|)nicovideo\.jp\/watch\/(.{2}[0-9]+)(?:\?.*|)$",
-        Sites.SPOTIFY: r"(https?:\/\/)(www\.)?open\.spotify\.com\/(([a-zA-Z-]+)\/)?(user\/([a-zA-Z0-9-_]+)\/)?(track|album|playlist|artist)\/([a-zA-Z0-9-_]+)",
-        Sites.APPLE: r"(https?:\/\/)?(www\.)?music\.apple\.com\/(([a-zA-Z]{2})\/)?(album|playlist|artist|song)(\/[a-zA-Z\p{L}\d\-]+)?\/([a-zA-Z\d\-.]+)(\?i=(\d+))?",
-        Sites.DEEZER: r"(https?:\/\/)?(www\.)?deezer\.com\/([a-zA-Z]{2}\/)?(track|album|playlist|artist)\/([0-9]+)",
+        Sites.NICO: r"^(https?:\/\/)?(?:www\.|)nicovideo\.jp\/watch\/(.{2}[0-9]+)(?:\?.*|)$",  # noqa: E501
+        Sites.SPOTIFY: r"(https?:\/\/)(www\.)?open\.spotify\.com\/(([a-zA-Z-]+)\/)?(user\/([a-zA-Z0-9-_]+)\/)?(track|album|playlist|artist)\/([a-zA-Z0-9-_]+)",  # noqa: E501
+        Sites.APPLE: r"(https?:\/\/)?(www\.)?music\.apple\.com\/(([a-zA-Z]{2})\/)?(album|playlist|artist|song)(\/[a-zA-Z\p{L}\d\-]+)?\/([a-zA-Z\d\-.]+)(\?i=(\d+))?",  # noqa: E501
+        Sites.DEEZER: r"(https?:\/\/)?(www\.)?deezer\.com\/([a-zA-Z]{2}\/)?(track|album|playlist|artist)\/([0-9]+)",  # noqa: E501
         Sites.YANDEX: [
             r"(https?:\/\/)?music\.yandex\.(ru|com|kz|by)\/(artist|album|track)\/([0-9]+)(\/(track)\/([0-9]+))?\/?",
             r"(https?:\/\/)?music\.yandex\.(ru|com|kz|by)\/users\/([0-9A-Za-z@.-]+)\/playlists\/([0-9]+)\/?",

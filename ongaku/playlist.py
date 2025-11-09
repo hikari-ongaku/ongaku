@@ -84,6 +84,9 @@ class Playlist:
             and self.plugin_info == other.plugin_info
         )
 
+    def __hash__(self) -> int:
+        return hash((self.info, self.tracks, self.plugin_info))
+
 
 class PlaylistInfo:
     """Playlist information.
@@ -117,3 +120,6 @@ class PlaylistInfo:
             return False
 
         return self.name == other.name and self.selected_track == other.selected_track
+
+    def __hash__(self) -> int:
+        return hash((self.name, self.selected_track))

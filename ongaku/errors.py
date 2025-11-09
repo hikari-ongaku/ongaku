@@ -32,26 +32,32 @@ if typing.TYPE_CHECKING:
 
 __all__: typing.Sequence[str] = (
     "BuildError",
+    "BuildTypeError",
+    "BuildUnknownVariantError",
     "ClientAliveError",
     "ClientError",
     "ExceptionError",
     "NoSessionsError",
     "OngakuError",
     "PlayerConnectError",
+    "PlayerConnectEventMissingError",
     "PlayerError",
     "PlayerMissingError",
     "PlayerNotConnectedError",
+    "PlayerQueueEmptyError",
     "PlayerQueueError",
+    "PlayerQueueLengthError",
     "RestEmptyError",
     "RestError",
     "RestRequestError",
     "RestStatusError",
+    "SessionClientSessionMissingError",
     "SessionError",
     "SessionHandlerError",
+    "SessionMissingBotInformationError",
     "SessionMissingError",
     "SessionStartError",
     "SeverityType",
-    "TimeoutError",
 )
 
 
@@ -71,7 +77,7 @@ class RestStatusError(RestError):
 
     __slots__: typing.Sequence[str] = ("_reason", "_status")
 
-    def __init__(self, status: int, reason: str | None, /) -> None:
+    def __init__(self, status: int, reason: str | None) -> None:
         self._status = status
         self._reason = reason
 
@@ -184,6 +190,9 @@ class ExceptionError(RestError):
             and self.cause == other.cause
         )
 
+    def __hash__(self) -> int:
+        return hash((self.message, self.severity, self.cause))
+
 
 # Client
 
@@ -213,8 +222,16 @@ class SessionError(OngakuError):
     """The base session error for all session related errors."""
 
 
+class SessionClientSessionMissingError(SessionError):
+    """Raised when the client session has not been set."""
+
+
 class SessionStartError(SessionError):
-    """Raised when the session has not started. (has not received the ready payload)."""
+    """Raised when the session has not successfully started."""
+
+
+class SessionMissingBotInformationError(SessionStartError):
+    """Raised when the bot information could not be successfully retrieved."""
 
 
 class SessionMissingError(SessionError):
@@ -239,6 +256,10 @@ class PlayerError(OngakuError):
     """The base for all player related errors."""
 
 
+class PlayerConnectEventMissingError(PlayerError):
+    """Raised when the event(s) requested are not received."""
+
+
 class PlayerConnectError(PlayerError):
     """Raised when the player cannot connect to lavalink, or discord."""
 
@@ -258,17 +279,15 @@ class PlayerNotConnectedError(PlayerError):
 
 
 class PlayerQueueError(PlayerError):
-    """Raised when the players queue is empty."""
+    """The base for all player queue related errors."""
 
-    __slots__: typing.Sequence[str] = ("_reason",)
 
-    def __init__(self, reason: str, /) -> None:
-        self._reason = reason
+class PlayerQueueLengthError(PlayerError):
+    """Raised when the player queue is not of a certain length."""
 
-    @property
-    def reason(self) -> str:
-        """Reason for the queue error."""
-        return self._reason
+
+class PlayerQueueEmptyError(PlayerQueueError):
+    """Raised when the player queue is empty."""
 
 
 class PlayerMissingError(PlayerError):
@@ -279,7 +298,7 @@ class PlayerMissingError(PlayerError):
 
 
 class BuildError(OngakuError):
-    """Raised when a abstract class fails to build."""
+    """Raised when a object fails to build."""
 
     __slots__: typing.Sequence[str] = ("_reason",)
 
@@ -296,8 +315,50 @@ class BuildError(OngakuError):
         return self._reason
 
 
-class TimeoutError(OngakuError):
-    """Raised when an event times out."""
+class BuildTypeError(BuildError, TypeError):
+    """Raised when an expected type was not received."""
+
+    __slots__: typing.Sequence[str] = (
+        "_expected_type",
+        "_received_type",
+    )
+
+    def __init__(
+        self,
+        expected_type: type,
+        received_type: type,
+    ) -> None:
+        self._expected_type = expected_type
+        self._received_type = received_type
+        super().__init__(f"Expected `{expected_type}` received `{received_type}`")
+
+    @property
+    def expected_type(self) -> type:
+        """The expected type."""
+        return self._expected_type
+
+    @property
+    def received_type(self) -> type:
+        """The received type."""
+        return self._received_type
+
+
+class BuildUnknownVariantError(OngakuError):
+    """Raised when an unknown variant for a build type was received."""
+
+    __slots__: typing.Sequence[str] = ("_unknown_value",)
+
+    def __init__(
+        self,
+        unknown_value: str,
+        /,
+    ) -> None:
+        self._unknown_value = unknown_value
+
+    @property
+    def unknown_value(self) -> str | None:
+        """The unknown value."""
+        return self._unknown_value
 
 
 class SeverityType(str, enum.Enum):

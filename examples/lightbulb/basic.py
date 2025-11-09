@@ -213,7 +213,7 @@ async def play_command(
 
     player = music.create_player(ctx.guild_id)
 
-    if player.connected is False:
+    if player.is_connected is False:
         await player.connect(voice_state.channel_id)
 
     await player.play(track)

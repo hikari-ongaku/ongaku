@@ -126,6 +126,20 @@ class Information:
             and self.plugins == other.plugins
         )
 
+    def __hash__(self) -> int:
+        return hash(
+            (
+                self.version,
+                self.build_time,
+                self.git,
+                self.jvm,
+                self.lavaplayer,
+                self.source_managers,
+                self.filters,
+                self.plugins,
+            ),
+        )
+
 
 class Version:
     """Version.
@@ -212,6 +226,18 @@ class Version:
             and self.build == other.build
         )
 
+    def __hash__(self) -> int:
+        return hash(
+            (
+                self.semver,
+                self.major,
+                self.minor,
+                self.patch,
+                self.pre_release,
+                self.build,
+            ),
+        )
+
 
 class Git:
     """Git.
@@ -263,6 +289,9 @@ class Git:
             and self.commit_time == other.commit_time
         )
 
+    def __hash__(self) -> int:
+        return hash((self.branch, self.commit, self.commit_time))
+
 
 class Plugin:
     """Plugin.
@@ -293,3 +322,6 @@ class Plugin:
             return False
 
         return self.name == other.name and self.version == other.version
+
+    def __hash__(self) -> int:
+        return hash((self.name, self.version))

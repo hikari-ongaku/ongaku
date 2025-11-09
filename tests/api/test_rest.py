@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import typing
 from unittest import mock
 
@@ -8,13 +9,12 @@ import pytest
 
 from ongaku import errors as errors_
 from ongaku import player as player_
-from ongaku import playlist as playlist_
+from ongaku import session as session_
 from ongaku import track as track_
 from ongaku.api import builders as builders_
 from ongaku.api.rest import RESTClient
 from ongaku.client import Client
 from ongaku.internal import routes
-from ongaku.session import ControllableSession
 
 
 @pytest.fixture
@@ -31,168 +31,23 @@ class TestRESTClient:
         assert rest_client._client == client
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize(  # FIXME: Make this less bulky. Also make them use the same method as the decode_track with mocking the return payload.  # noqa: TD001, TD002, TD003
-        ("payload", "expected"),
+    @pytest.mark.parametrize(
+        ("load_type", "expected_function"),
         [
-            (
-                {
-                    "loadType": "empty",
-                    "data": {},
-                },
-                None,
-            ),
-            (
-                {
-                    "loadType": "search",
-                    "data": [
-                        {
-                            "encoded": "encoded",
-                            "info": {
-                                "identifier": "identifier",
-                                "isSeekable": False,
-                                "author": "author",
-                                "length": 1,
-                                "isStream": True,
-                                "position": 2,
-                                "title": "title",
-                                "sourceName": "source_name",
-                                "uri": "uri",
-                                "artworkUrl": "artwork_url",
-                                "isrc": "isrc",
-                            },
-                            "pluginInfo": {},
-                            "userData": {},
-                        },
-                    ],
-                },
-                [
-                    track_.Track(
-                        encoded="encoded",
-                        info=track_.TrackInfo(
-                            identifier="identifier",
-                            is_seekable=False,
-                            author="author",
-                            length=1,
-                            is_stream=True,
-                            position=2,
-                            title="title",
-                            source_name="source_name",
-                            uri="uri",
-                            artwork_url="artwork_url",
-                            isrc="isrc",
-                        ),
-                        plugin_info={},
-                        user_data={},
-                        requestor=None,
-                    ),
-                ],
-            ),
-            (
-                {
-                    "loadType": "track",
-                    "data": {
-                        "encoded": "encoded",
-                        "info": {
-                            "identifier": "identifier",
-                            "isSeekable": False,
-                            "author": "author",
-                            "length": 1,
-                            "isStream": True,
-                            "position": 2,
-                            "title": "title",
-                            "sourceName": "source_name",
-                            "uri": "uri",
-                            "artworkUrl": "artwork_url",
-                            "isrc": "isrc",
-                        },
-                        "pluginInfo": {},
-                        "userData": {},
-                    },
-                },
-                track_.Track(
-                    encoded="encoded",
-                    info=track_.TrackInfo(
-                        identifier="identifier",
-                        is_seekable=False,
-                        author="author",
-                        length=1,
-                        is_stream=True,
-                        position=2,
-                        title="title",
-                        source_name="source_name",
-                        uri="uri",
-                        artwork_url="artwork_url",
-                        isrc="isrc",
-                    ),
-                    plugin_info={},
-                    user_data={},
-                    requestor=None,
-                ),
-            ),
-            (
-                {
-                    "loadType": "playlist",
-                    "data": {
-                        "info": {"name": "name", "selectedTrack": 1},
-                        "pluginInfo": {},
-                        "tracks": [
-                            {
-                                "encoded": "encoded",
-                                "info": {
-                                    "identifier": "identifier",
-                                    "isSeekable": False,
-                                    "author": "author",
-                                    "length": 1,
-                                    "isStream": True,
-                                    "position": 2,
-                                    "title": "title",
-                                    "sourceName": "source_name",
-                                    "uri": "uri",
-                                    "artworkUrl": "artwork_url",
-                                    "isrc": "isrc",
-                                },
-                                "pluginInfo": {},
-                                "userData": {},
-                            },
-                        ],
-                    },
-                },
-                playlist_.Playlist(
-                    info=playlist_.PlaylistInfo(name="name", selected_track=1),
-                    tracks=[
-                        track_.Track(
-                            encoded="encoded",
-                            info=track_.TrackInfo(
-                                identifier="identifier",
-                                is_seekable=False,
-                                author="author",
-                                length=1,
-                                is_stream=True,
-                                position=2,
-                                title="title",
-                                source_name="source_name",
-                                uri="uri",
-                                artwork_url="artwork_url",
-                                isrc="isrc",
-                            ),
-                            plugin_info={},
-                            user_data={},
-                            requestor=None,
-                        ),
-                    ],
-                    plugin_info={},
-                ),
-            ),
+            ("track", "deserialize_track"),
+            ("playlist", "deserialize_playlist"),
         ],
     )
     async def test_load_track(
         self,
         rest_client: RESTClient,
         ongaku_client: Client,
-        payload: dict[str, typing.Any],
-        expected: typing.Any,
+        load_type: str,
+        expected_function: str,
     ):
         route = routes.GET_LOAD_TRACKS.build()
+
+        payload: dict[str, typing.Any] = {"loadType": load_type, "data": {}}
 
         with (
             mock.patch.object(ongaku_client, "_handler") as patched__handler,
@@ -203,8 +58,14 @@ class TestRESTClient:
                 new_callable=mock.AsyncMock,
                 return_value=payload,
             ) as patched_request,
+            mock.patch(
+                f"ongaku.api.builders.EntityBuilder.{expected_function}",
+            ) as patched_expected_function,
         ):
-            assert await rest_client.load_track("yt:hilltop hoods") == expected
+            assert (
+                await rest_client.load_track("yt:hilltop hoods")
+                == patched_expected_function.return_value
+            )
 
         patched_request.assert_awaited_once_with(
             route,
@@ -214,186 +75,44 @@ class TestRESTClient:
         patched_get_session.assert_called_once_with()
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize(  # FIXME: Make this less bulky. Also make them use the same method as the decode_track with mocking the return payload.  # noqa: TD001, TD002, TD003
-        ("payload", "expected"),
+    @pytest.mark.parametrize(
+        ("load_type", "expected_function"),
         [
-            (
-                {
-                    "loadType": "empty",
-                    "data": {},
-                },
-                None,
-            ),
-            (
-                {
-                    "loadType": "search",
-                    "data": [
-                        {
-                            "encoded": "encoded",
-                            "info": {
-                                "identifier": "identifier",
-                                "isSeekable": False,
-                                "author": "author",
-                                "length": 1,
-                                "isStream": True,
-                                "position": 2,
-                                "title": "title",
-                                "sourceName": "source_name",
-                                "uri": "uri",
-                                "artworkUrl": "artwork_url",
-                                "isrc": "isrc",
-                            },
-                            "pluginInfo": {},
-                            "userData": {},
-                        },
-                    ],
-                },
-                [
-                    track_.Track(
-                        encoded="encoded",
-                        info=track_.TrackInfo(
-                            identifier="identifier",
-                            is_seekable=False,
-                            author="author",
-                            length=1,
-                            is_stream=True,
-                            position=2,
-                            title="title",
-                            source_name="source_name",
-                            uri="uri",
-                            artwork_url="artwork_url",
-                            isrc="isrc",
-                        ),
-                        plugin_info={},
-                        user_data={},
-                        requestor=None,
-                    ),
-                ],
-            ),
-            (
-                {
-                    "loadType": "track",
-                    "data": {
-                        "encoded": "encoded",
-                        "info": {
-                            "identifier": "identifier",
-                            "isSeekable": False,
-                            "author": "author",
-                            "length": 1,
-                            "isStream": True,
-                            "position": 2,
-                            "title": "title",
-                            "sourceName": "source_name",
-                            "uri": "uri",
-                            "artworkUrl": "artwork_url",
-                            "isrc": "isrc",
-                        },
-                        "pluginInfo": {},
-                        "userData": {},
-                    },
-                },
-                track_.Track(
-                    encoded="encoded",
-                    info=track_.TrackInfo(
-                        identifier="identifier",
-                        is_seekable=False,
-                        author="author",
-                        length=1,
-                        is_stream=True,
-                        position=2,
-                        title="title",
-                        source_name="source_name",
-                        uri="uri",
-                        artwork_url="artwork_url",
-                        isrc="isrc",
-                    ),
-                    plugin_info={},
-                    user_data={},
-                    requestor=None,
-                ),
-            ),
-            (
-                {
-                    "loadType": "playlist",
-                    "data": {
-                        "info": {"name": "name", "selectedTrack": 1},
-                        "pluginInfo": {},
-                        "tracks": [
-                            {
-                                "encoded": "encoded",
-                                "info": {
-                                    "identifier": "identifier",
-                                    "isSeekable": False,
-                                    "author": "author",
-                                    "length": 1,
-                                    "isStream": True,
-                                    "position": 2,
-                                    "title": "title",
-                                    "sourceName": "source_name",
-                                    "uri": "uri",
-                                    "artworkUrl": "artwork_url",
-                                    "isrc": "isrc",
-                                },
-                                "pluginInfo": {},
-                                "userData": {},
-                            },
-                        ],
-                    },
-                },
-                playlist_.Playlist(
-                    info=playlist_.PlaylistInfo(name="name", selected_track=1),
-                    tracks=[
-                        track_.Track(
-                            encoded="encoded",
-                            info=track_.TrackInfo(
-                                identifier="identifier",
-                                is_seekable=False,
-                                author="author",
-                                length=1,
-                                is_stream=True,
-                                position=2,
-                                title="title",
-                                source_name="source_name",
-                                uri="uri",
-                                artwork_url="artwork_url",
-                                isrc="isrc",
-                            ),
-                            plugin_info={},
-                            user_data={},
-                            requestor=None,
-                        ),
-                    ],
-                    plugin_info={},
-                ),
-            ),
+            ("track", "deserialize_track"),
+            ("playlist", "deserialize_playlist"),
         ],
     )
     async def test_load_track_with_session(
         self,
         rest_client: RESTClient,
         ongaku_client: Client,
-        ongaku_session: ControllableSession,
-        payload: dict[str, typing.Any],
-        expected: typing.Any,
+        ongaku_session: session_.Session,
+        load_type: str,
+        expected_function: str,
     ):
         route = routes.GET_LOAD_TRACKS.build()
+
+        payload: dict[str, typing.Any] = {"loadType": load_type, "data": {}}
 
         with (
             mock.patch.object(ongaku_client, "_handler") as patched__handler,
             mock.patch.object(patched__handler, "get_session") as patched_get_session,
             mock.patch.object(
-                ControllableSession,
+                session_.Session,
                 "request",
                 new_callable=mock.AsyncMock,
                 return_value=payload,
             ) as patched_request,
+            mock.patch(
+                f"ongaku.api.builders.EntityBuilder.{expected_function}",
+            ) as patched_expected_function,
         ):
             assert (
                 await rest_client.load_track(
                     "yt:hilltop hoods",
                     session=ongaku_session,
                 )
-                == expected
+                == patched_expected_function.return_value
             )
 
         patched_request.assert_awaited_once_with(
@@ -419,11 +138,41 @@ class TestRESTClient:
                 return_value=["bad", "data"],
             ),
             pytest.raises(
-                TypeError,
-                match=r"^Unexpected response type\.$",
+                errors_.BuildTypeError,
+                match=rf"({typing.Mapping}, {list})",
             ),
         ):
             await rest_client.load_track("yt:hilltop hoods")
+
+    @pytest.mark.asyncio
+    async def test_load_track_with_empty(
+        self,
+        rest_client: RESTClient,
+        ongaku_client: Client,
+    ):
+        route = routes.GET_LOAD_TRACKS.build()
+
+        payload: dict[str, typing.Any] = {
+            "loadType": "empty",
+            "data": {},
+        }
+
+        with (
+            mock.patch.object(ongaku_client, "_handler") as patched__handler,
+            mock.patch.object(patched__handler, "get_session") as patched_get_session,
+            mock.patch.object(
+                patched_get_session.return_value,
+                "request",
+                new_callable=mock.AsyncMock,
+                return_value=payload,
+            ) as patched_request,
+        ):
+            assert await rest_client.load_track("yt:hilltop hoods") is None
+
+        patched_request.assert_awaited_once_with(
+            route,
+            params={"identifier": "yt:hilltop hoods"},
+        )
 
     @pytest.mark.asyncio
     async def test_load_track_with_error(
@@ -480,7 +229,7 @@ class TestRESTClient:
                 new_callable=mock.AsyncMock,
                 return_value=payload,
             ),
-            pytest.raises(errors_.BuildError, match=r"^Unknown load type: `beans`\.$"),
+            pytest.raises(errors_.BuildUnknownVariantError, match=re.escape("beans")),
         ):
             await rest_client.load_track("yt:hilltop hoods")
 
@@ -522,7 +271,7 @@ class TestRESTClient:
         self,
         rest_client: RESTClient,
         ongaku_client: Client,
-        ongaku_session: ControllableSession,
+        ongaku_session: session_.Session,
     ):
         route = routes.GET_DECODE_TRACK.build()
 
@@ -530,7 +279,7 @@ class TestRESTClient:
             mock.patch.object(ongaku_client, "_handler") as patched__handler,
             mock.patch.object(patched__handler, "get_session") as patched_get_session,
             mock.patch.object(
-                ControllableSession,
+                session_.Session,
                 "request",
                 new_callable=mock.AsyncMock,
                 return_value={},
@@ -570,7 +319,10 @@ class TestRESTClient:
                 new_callable=mock.AsyncMock,
                 return_value=["bad", "data"],
             ),
-            pytest.raises(TypeError, match=r"^Unexpected response type\.$"),
+            pytest.raises(
+                errors_.BuildTypeError,
+                match=rf"({typing.Mapping}, {list})",
+            ),
         ):
             await rest_client.decode_track("abc123")
 
@@ -618,7 +370,7 @@ class TestRESTClient:
         self,
         rest_client: RESTClient,
         ongaku_client: Client,
-        ongaku_session: ControllableSession,
+        ongaku_session: session_.Session,
     ):
         route = routes.POST_DECODE_TRACKS.build()
 
@@ -629,7 +381,7 @@ class TestRESTClient:
             mock.patch.object(ongaku_client, "_handler") as patched__handler,
             mock.patch.object(patched__handler, "get_session") as patched_get_session,
             mock.patch.object(
-                ControllableSession,
+                session_.Session,
                 "request",
                 new_callable=mock.AsyncMock,
                 return_value=[track_1, track_2],
@@ -672,7 +424,10 @@ class TestRESTClient:
                 new_callable=mock.AsyncMock,
                 return_value={"bad": "data"},
             ),
-            pytest.raises(TypeError, match=r"^Unexpected response type\.$"),
+            pytest.raises(
+                errors_.BuildTypeError,
+                match=rf"({typing.Sequence}, {dict})",
+            ),
         ):
             await rest_client.decode_tracks(["abc", "123"])
 
@@ -711,7 +466,7 @@ class TestRESTClient:
         self,
         rest_client: RESTClient,
         ongaku_client: Client,
-        ongaku_session: ControllableSession,
+        ongaku_session: session_.Session,
     ):
         route = routes.GET_PLAYER.build(session_id="session_id", guild_id=123)
 
@@ -719,7 +474,7 @@ class TestRESTClient:
             mock.patch.object(ongaku_client, "_handler") as patched__handler,
             mock.patch.object(patched__handler, "get_session") as patched_get_session,
             mock.patch.object(
-                ControllableSession,
+                session_.Session,
                 "request",
                 new_callable=mock.AsyncMock,
                 return_value={},
@@ -760,7 +515,10 @@ class TestRESTClient:
                 new_callable=mock.AsyncMock,
                 return_value=["bad", "data"],
             ),
-            pytest.raises(TypeError, match=r"^Unexpected response type\.$"),
+            pytest.raises(
+                errors_.BuildTypeError,
+                match=rf"({typing.Mapping}, {list})",
+            ),
         ):
             await rest_client.fetch_player("session_id", 123)
 
@@ -806,7 +564,7 @@ class TestRESTClient:
         self,
         rest_client: RESTClient,
         ongaku_client: Client,
-        ongaku_session: ControllableSession,
+        ongaku_session: session_.Session,
     ):
         route = routes.GET_PLAYERS.build(session_id="session_id")
 
@@ -817,7 +575,7 @@ class TestRESTClient:
             mock.patch.object(ongaku_client, "_handler") as patched__handler,
             mock.patch.object(patched__handler, "get_session") as patched_get_session,
             mock.patch.object(
-                ControllableSession,
+                session_.Session,
                 "request",
                 new_callable=mock.AsyncMock,
                 return_value=[player_1, player_2],
@@ -856,7 +614,10 @@ class TestRESTClient:
                 new_callable=mock.AsyncMock,
                 return_value={"bad": "data"},
             ),
-            pytest.raises(TypeError, match=r"^Unexpected response type\.$"),
+            pytest.raises(
+                errors_.BuildTypeError,
+                match=rf"({typing.Mapping}, {dict})",
+            ),
         ):
             await rest_client.fetch_players("session_id")
 
@@ -919,24 +680,21 @@ class TestRESTClient:
                 no_replace=True,
             )
 
+        patched__builder.serialize_voice.assert_called_once_with(voice)
         patched_request.assert_awaited_once_with(
             route,
             headers={"Content-Type": "application/json"},
             body={
                 "track": {
                     "encoded": "encoded",
-                    "userData": {"ongaku_requestor": 456},
+                    "userData": {"ongaku_requestor": "456"},
                 },
                 "position": 1,
                 "endTime": 2,
                 "volume": 3,
                 "paused": False,
                 "filters": filters.build(),
-                "voice": {
-                    "token": "token",
-                    "endpoint": "endpoint",
-                    "sessionId": "session_id",
-                },
+                "voice": patched__builder.serialize_voice.return_value,
             },
             params={"noReplace": "true"},
         )
@@ -948,7 +706,7 @@ class TestRESTClient:
         self,
         rest_client: RESTClient,
         ongaku_client: Client,
-        ongaku_session: ControllableSession,
+        ongaku_session: session_.Session,
     ):
         route = routes.PATCH_PLAYER_UPDATE.build(
             session_id="session_id",
@@ -983,7 +741,7 @@ class TestRESTClient:
             mock.patch.object(ongaku_client, "_handler") as patched__handler,
             mock.patch.object(patched__handler, "get_session") as patched_get_session,
             mock.patch.object(
-                ControllableSession,
+                session_.Session,
                 "request",
                 new_callable=mock.AsyncMock,
                 return_value={},
@@ -1008,24 +766,21 @@ class TestRESTClient:
                 session=ongaku_session,
             )
 
+        patched__builder.serialize_voice.assert_called_once_with(voice)
         patched_request.assert_awaited_once_with(
             route,
             headers={"Content-Type": "application/json"},
             body={
                 "track": {
                     "encoded": "encoded",
-                    "userData": {"ongaku_requestor": 456},
+                    "userData": {"ongaku_requestor": "456"},
                 },
                 "position": 1,
                 "endTime": 2,
                 "volume": 3,
                 "paused": False,
                 "filters": filters.build(),
-                "voice": {
-                    "token": "token",
-                    "endpoint": "endpoint",
-                    "sessionId": "session_id",
-                },
+                "voice": patched__builder.serialize_voice.return_value,
             },
             params={"noReplace": "true"},
         )
@@ -1049,7 +804,10 @@ class TestRESTClient:
                 new_callable=mock.AsyncMock,
                 return_value=["bad", "data"],
             ),
-            pytest.raises(TypeError, match=r"^Unexpected response type\.$"),
+            pytest.raises(
+                errors_.BuildTypeError,
+                match=rf"({typing.Mapping}, {list})",
+            ),
         ):
             await rest_client.update_player(
                 "session_id",
@@ -1064,7 +822,7 @@ class TestRESTClient:
     ):
         with pytest.raises(
             ValueError,
-            match=r"^One or more of the undefined values must be set\.$",
+            match=r"^$",
         ):
             await rest_client.update_player("session_id", 123)
 
@@ -1093,7 +851,7 @@ class TestRESTClient:
         self,
         rest_client: RESTClient,
         ongaku_client: Client,
-        ongaku_session: ControllableSession,
+        ongaku_session: session_.Session,
     ):
         route = routes.DELETE_PLAYER.build(session_id="session_id", guild_id=123)
 
@@ -1101,7 +859,7 @@ class TestRESTClient:
             mock.patch.object(ongaku_client, "_handler") as patched__handler,
             mock.patch.object(patched__handler, "get_session") as patched_get_session,
             mock.patch.object(
-                ControllableSession,
+                session_.Session,
                 "request",
                 new_callable=mock.AsyncMock,
                 return_value=None,
@@ -1200,7 +958,10 @@ class TestRESTClient:
                 new_callable=mock.AsyncMock,
                 return_value=[],
             ),
-            pytest.raises(TypeError, match=r"^Unexpected response type\.$"),
+            pytest.raises(
+                errors_.BuildTypeError,
+                match=rf"({typing.Mapping}, {list})",
+            ),
         ):
             await rest_client.update_session("session_id", resuming=False, timeout=1)
 
@@ -1239,7 +1000,7 @@ class TestRESTClient:
         self,
         rest_client: RESTClient,
         ongaku_client: Client,
-        ongaku_session: ControllableSession,
+        ongaku_session: session_.Session,
     ):
         route = routes.GET_INFO.build()
 
@@ -1247,7 +1008,7 @@ class TestRESTClient:
             mock.patch.object(ongaku_client, "_handler") as patched__handler,
             mock.patch.object(patched__handler, "get_session") as patched_get_session,
             mock.patch.object(
-                ControllableSession,
+                session_.Session,
                 "request",
                 new_callable=mock.AsyncMock,
                 return_value={},
@@ -1286,7 +1047,10 @@ class TestRESTClient:
                 new_callable=mock.AsyncMock,
                 return_value=[],
             ) as patched_request,
-            pytest.raises(TypeError, match=r"^Unexpected response type\.$"),
+            pytest.raises(
+                errors_.BuildTypeError,
+                match=rf"({typing.Mapping}, {list})",
+            ),
         ):
             await rest_client.fetch_info()
 
@@ -1319,7 +1083,7 @@ class TestRESTClient:
         self,
         rest_client: RESTClient,
         ongaku_client: Client,
-        ongaku_session: ControllableSession,
+        ongaku_session: session_.Session,
     ):
         route = routes.GET_VERSION.build()
 
@@ -1327,7 +1091,7 @@ class TestRESTClient:
             mock.patch.object(ongaku_client, "_handler") as patched__handler,
             mock.patch.object(patched__handler, "get_session") as patched_get_session,
             mock.patch.object(
-                ControllableSession,
+                session_.Session,
                 "request",
                 new_callable=mock.AsyncMock,
                 return_value="1.2.3",
@@ -1354,7 +1118,10 @@ class TestRESTClient:
                 new_callable=mock.AsyncMock,
                 return_value={},
             ),
-            pytest.raises(TypeError, match=r"^Unexpected response type\.$"),
+            pytest.raises(
+                errors_.BuildTypeError,
+                match=rf"({str}, {dict})",
+            ),
         ):
             await rest_client.fetch_version()
 
@@ -1397,7 +1164,7 @@ class TestRESTClient:
         self,
         rest_client: RESTClient,
         ongaku_client: Client,
-        ongaku_session: ControllableSession,
+        ongaku_session: session_.Session,
     ):
         route = routes.GET_STATISTICS.build()
 
@@ -1405,7 +1172,7 @@ class TestRESTClient:
             mock.patch.object(ongaku_client, "_handler") as patched__handler,
             mock.patch.object(patched__handler, "get_session") as patched_get_session,
             mock.patch.object(
-                ControllableSession,
+                session_.Session,
                 "request",
                 new_callable=mock.AsyncMock,
                 return_value={},
@@ -1444,7 +1211,10 @@ class TestRESTClient:
                 new_callable=mock.AsyncMock,
                 return_value=["bad", "data"],
             ),
-            pytest.raises(TypeError, match=r"^Unexpected response type\.$"),
+            pytest.raises(
+                errors_.BuildTypeError,
+                match=rf"({typing.Mapping}, {list})",
+            ),
         ):
             await rest_client.fetch_statistics()
 
@@ -1487,7 +1257,7 @@ class TestRESTClient:
         self,
         rest_client: RESTClient,
         ongaku_client: Client,
-        ongaku_session: ControllableSession,
+        ongaku_session: session_.Session,
     ):
         route = routes.GET_ROUTEPLANNER_STATUS.build()
 
@@ -1495,7 +1265,7 @@ class TestRESTClient:
             mock.patch.object(ongaku_client, "_handler") as patched__handler,
             mock.patch.object(patched__handler, "get_session") as patched_get_session,
             mock.patch.object(
-                ControllableSession,
+                session_.Session,
                 "request",
                 new_callable=mock.AsyncMock,
                 return_value={},
@@ -1534,7 +1304,10 @@ class TestRESTClient:
                 new_callable=mock.AsyncMock,
                 return_value=["bad", "data"],
             ),
-            pytest.raises(TypeError, match=r"^Unexpected response type\.$"),
+            pytest.raises(
+                errors_.BuildTypeError,
+                match=rf"({typing.Mapping}, {list})",
+            ),
         ):
             await rest_client.fetch_routeplanner_status()
 
@@ -1570,7 +1343,7 @@ class TestRESTClient:
         self,
         rest_client: RESTClient,
         ongaku_client: Client,
-        ongaku_session: ControllableSession,
+        ongaku_session: session_.Session,
     ):
         route = routes.POST_ROUTEPLANNER_FREE_ADDRESS.build()
 
@@ -1578,7 +1351,7 @@ class TestRESTClient:
             mock.patch.object(ongaku_client, "_handler") as patched__handler,
             mock.patch.object(patched__handler, "get_session") as patched_get_session,
             mock.patch.object(
-                ControllableSession,
+                session_.Session,
                 "request",
                 new_callable=mock.AsyncMock,
                 return_value={},
@@ -1624,7 +1397,7 @@ class TestRESTClient:
         self,
         rest_client: RESTClient,
         ongaku_client: Client,
-        ongaku_session: ControllableSession,
+        ongaku_session: session_.Session,
     ):
         route = routes.POST_ROUTEPLANNER_FREE_ALL.build()
 
@@ -1632,7 +1405,7 @@ class TestRESTClient:
             mock.patch.object(ongaku_client, "_handler") as patched__handler,
             mock.patch.object(patched__handler, "get_session") as patched_get_session,
             mock.patch.object(
-                ControllableSession,
+                session_.Session,
                 "request",
                 new_callable=mock.AsyncMock,
                 return_value={},

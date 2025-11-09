@@ -209,7 +209,7 @@ async def play_command(
 
     player = music.create_player(ctx.guild_id)
 
-    if player.connected is False:
+    if player.is_connected is False:
         await player.connect(voice_state.channel_id)
 
     await player.play(track)
@@ -230,7 +230,7 @@ async def play_command(
 async def add_command(
     ctx: arc.GatewayContext,
     query: arc.Option[str, arc.StrParams("The name, or link of the song to add.")],
-    player: ongaku.ControllablePlayer = arc.inject(),
+    player: ongaku.Player = arc.inject(),
 ) -> None:
     if checker.check(query):
         result = await player.session.client.rest.load_track(query)
@@ -277,7 +277,7 @@ async def add_command(
 )
 async def queue_command(
     ctx: arc.GatewayContext,
-    player: ongaku.ControllablePlayer = arc.inject(),
+    player: ongaku.Player = arc.inject(),
 ) -> None:
     if len(player.queue) == 0:
         await ctx.respond(
@@ -318,7 +318,7 @@ async def queue_command(
 )
 async def pause_command(
     ctx: arc.GatewayContext,
-    player: ongaku.ControllablePlayer = arc.inject(),
+    player: ongaku.Player = arc.inject(),
 ) -> None:
     await player.pause()
 
@@ -343,7 +343,7 @@ async def pause_command(
 )
 async def skip_command(
     ctx: arc.GatewayContext,
-    player: ongaku.ControllablePlayer = arc.inject(),
+    player: ongaku.Player = arc.inject(),
 ) -> None:
     await player.skip()
 
@@ -373,7 +373,7 @@ async def skip_command(
 async def volume_command(
     ctx: arc.GatewayContext,
     volume: arc.Option[int, arc.IntParams("The volume to set.", min=0, max=200)],
-    player: ongaku.ControllablePlayer = arc.inject(),
+    player: ongaku.Player = arc.inject(),
 ) -> None:
     await player.set_volume(volume)
 
@@ -392,7 +392,7 @@ async def volume_command(
 )
 async def loop_command(
     ctx: arc.GatewayContext,
-    player: ongaku.ControllablePlayer = arc.inject(),
+    player: ongaku.Player = arc.inject(),
 ) -> None:
     player.set_loop()
 
@@ -423,7 +423,7 @@ async def loop_command(
 )
 async def shuffle_command(
     ctx: arc.GatewayContext,
-    player: ongaku.ControllablePlayer = arc.inject(),
+    player: ongaku.Player = arc.inject(),
 ) -> None:
     player.shuffle()
 
@@ -446,7 +446,7 @@ async def filter_command(
         float,
         arc.FloatParams("The speed to change the player to.", min=0, max=5),
     ] = 1,
-    player: ongaku.ControllablePlayer = arc.inject(),
+    player: ongaku.Player = arc.inject(),
 ) -> None:
     if player.filters:
         filters = ongaku.FiltersBuilder.from_filter(player.filters)
@@ -472,7 +472,7 @@ async def filter_command(
 )
 async def stop_command(
     ctx: arc.GatewayContext,
-    player: ongaku.ControllablePlayer = arc.inject(),
+    player: ongaku.Player = arc.inject(),
 ) -> None:
     await player.stop()
 
@@ -491,7 +491,7 @@ async def stop_command(
 )
 async def disconnect_command(
     ctx: arc.GatewayContext,
-    player: ongaku.ControllablePlayer = arc.inject(),
+    player: ongaku.Player = arc.inject(),
 ) -> None:
     await player.disconnect()
 

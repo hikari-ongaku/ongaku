@@ -110,6 +110,18 @@ class Statistics:
             and self.frame_statistics == other.frame_statistics
         )
 
+    def __hash__(self) -> int:
+        return hash(
+            (
+                self.players,
+                self.playing_players,
+                self.uptime,
+                self.memory,
+                self.cpu,
+                self.frame_statistics,
+            ),
+        )
+
 
 class Memory:
     """Memory.
@@ -165,6 +177,9 @@ class Memory:
             and self.reservable == other.reservable
         )
 
+    def __hash__(self) -> int:
+        return hash((self.free, self.used, self.allocated, self.reservable))
+
 
 class Cpu:
     """CPU.
@@ -206,6 +221,9 @@ class Cpu:
             and self.lavalink_load == other.lavalink_load
         )
 
+    def __hash__(self) -> int:
+        return hash((self.cores, self.system_load, self.lavalink_load))
+
 
 class FrameStatistics:
     """Frame Statistics.
@@ -246,3 +264,6 @@ class FrameStatistics:
             and self.nulled == other.nulled
             and self.deficit == other.deficit
         )
+
+    def __hash__(self) -> int:
+        return hash((self.sent, self.nulled, self.deficit))

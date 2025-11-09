@@ -87,7 +87,7 @@ class Filters:
         "_volume",
     )
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         *,
         volume: float | None,
@@ -220,6 +220,22 @@ class Filters:
             and self.plugin_filters == other.plugin_filters
         )
 
+    def __hash__(self) -> int:
+        return hash(
+            (
+                self.volume,
+                self.karaoke,
+                self.timescale,
+                self.tremolo,
+                self.vibrato,
+                self.rotation,
+                self.distortion,
+                self.channel_mix,
+                self.low_pass,
+                self.plugin_filters,
+            ),
+        )
+
 
 class Equalizer:
     """Equalizer.
@@ -254,6 +270,9 @@ class Equalizer:
             return False
 
         return self.band == other.band and self.gain == other.gain
+
+    def __hash__(self) -> int:
+        return hash((self.band, self.gain))
 
 
 class Karaoke:
@@ -315,6 +334,16 @@ class Karaoke:
             and self.filter_width == other.filter_width
         )
 
+    def __hash__(self) -> int:
+        return hash(
+            (
+                self.level,
+                self.mono_level,
+                self.filter_band,
+                self.filter_width,
+            ),
+        )
+
 
 class Timescale:
     """Timescale.
@@ -362,6 +391,9 @@ class Timescale:
             and self.rate == other.rate
         )
 
+    def __hash__(self) -> int:
+        return hash((self.speed, self.pitch, self.rate))
+
 
 class Tremolo:
     """Tremolo.
@@ -396,6 +428,9 @@ class Tremolo:
             return False
 
         return self.frequency == other.frequency and self.depth == other.depth
+
+    def __hash__(self) -> int:
+        return hash((self.frequency, self.depth))
 
 
 class Vibrato:
@@ -434,6 +469,9 @@ class Vibrato:
 
         return self.frequency == other.frequency and self.depth == other.depth
 
+    def __hash__(self) -> int:
+        return hash((self.frequency, self.depth))
+
 
 class Rotation:
     """Rotation.
@@ -458,6 +496,9 @@ class Rotation:
             return False
 
         return self.rotation_hz == other.rotation_hz
+
+    def __hash__(self) -> int:
+        return hash(self.rotation_hz)
 
 
 class Distortion:
@@ -555,6 +596,20 @@ class Distortion:
             and self.scale == other.scale
         )
 
+    def __hash__(self) -> int:
+        return hash(
+            (
+                self.sin_offset,
+                self.sin_scale,
+                self.cos_offset,
+                self.cos_scale,
+                self.tan_offset,
+                self.tan_scale,
+                self.offset,
+                self.scale,
+            ),
+        )
+
 
 class ChannelMix:
     """Channel Mix.
@@ -618,6 +673,16 @@ class ChannelMix:
             and self.right_to_right == other.right_to_right
         )
 
+    def __hash__(self) -> int:
+        return hash(
+            (
+                self.left_to_left,
+                self.left_to_right,
+                self.right_to_left,
+                self.right_to_right,
+            ),
+        )
+
 
 class LowPass:
     """Low Pass.
@@ -646,6 +711,9 @@ class LowPass:
             return False
 
         return self.smoothing == other.smoothing
+
+    def __hash__(self) -> int:
+        return hash(self.smoothing)
 
 
 class BandType(enum.IntEnum):

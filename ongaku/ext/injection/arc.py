@@ -26,13 +26,10 @@ Adds arc's ensure player, so you don't have to make sure its a player.
 
 from __future__ import annotations
 
+import arc
+
 from ongaku import errors
 from ongaku.client import Client
-
-try:
-    import arc
-except ImportError:
-    raise ImportError("Arc is required for you to use arc_ensure_player.")
 
 __all__ = ("arc_ensure_player",)
 

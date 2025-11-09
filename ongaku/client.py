@@ -31,12 +31,12 @@ import alluka
 import hikari
 
 from ongaku import errors
+from ongaku import player as player_
+from ongaku import session as session_
 from ongaku.api.builders import EntityBuilder
 from ongaku.api.handlers import BasicHandler
 from ongaku.api.rest import RESTClient
 from ongaku.internal.logging import TRACE_LEVEL
-from ongaku.player import ControllablePlayer
-from ongaku.session import ControllableSession
 
 if typing.TYPE_CHECKING:
     try:
@@ -194,8 +194,8 @@ class Client:
         """
         try:
             app = client.get_type_dependency(hikari.GatewayBotAware)
-        except KeyError:
-            raise Exception("The gateway bot requested was not found.")
+        except KeyError as err:
+            raise ValueError("Missing gateway bot.") from err  # noqa: TRY003
 
         return cls(
             app,
@@ -288,7 +288,7 @@ class Client:
 
         _logger.log(TRACE_LEVEL, "Successfully injected player into context.")
 
-        inj_ctx.set_type_dependency(ControllablePlayer, player)
+        inj_ctx.set_type_dependency(player_.Player, player)
 
     def create_session(
         self,
@@ -297,8 +297,8 @@ class Client:
         ssl: bool = False,
         host: str = "127.0.0.1",
         port: int = 2333,
-        password: str = "youshallnotpass",
-    ) -> ControllableSession:
+        password: str = "youshallnotpass",  # noqa: S107
+    ) -> session_.Session:
         """Create session.
 
         Create a new session for the session handler.
@@ -337,7 +337,7 @@ class Client:
         Session
             The session that was added to the handler.
         """
-        new_session = ControllableSession(
+        new_session = session_.Session(
             self,
             name=name,
             ssl=ssl,
@@ -348,7 +348,7 @@ class Client:
 
         return self.handler.add_session(session=new_session)
 
-    def get_session(self, name: str) -> ControllableSession:
+    def get_session(self, name: str) -> session_.Session:
         """Get session.
 
         Get a session from the session handler.
@@ -390,7 +390,7 @@ class Client:
     def create_player(
         self,
         guild: hikari.SnowflakeishOr[hikari.Guild],
-    ) -> ControllablePlayer:
+    ) -> player_.Player:
         """Create player.
 
         Create a new player to play songs on.
@@ -429,14 +429,14 @@ class Client:
 
         session = self.handler.get_session()
 
-        new_player = ControllablePlayer(session, hikari.Snowflake(guild))
+        new_player = player_.Player(session, hikari.Snowflake(guild))
 
         return self.handler.add_player(player=new_player)
 
     def get_player(
         self,
         guild: hikari.SnowflakeishOr[hikari.Guild],
-    ) -> ControllablePlayer:
+    ) -> player_.Player:
         """Get player.
 
         Gets an existing player.

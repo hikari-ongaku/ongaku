@@ -154,7 +154,7 @@ class GuildOnlyError(Exception): ...
 
 @client.include
 @crescent.catch_command(GuildOnlyError)
-async def guild_only_error_handler(exc: GuildOnlyError, ctx: crescent.Context) -> None:
+async def guild_only_error_handler(_exc: GuildOnlyError, ctx: crescent.Context) -> None:
     await ctx.respond(
         "This command must be ran in a guild.",
         flags=hikari.MessageFlag.EPHEMERAL,
@@ -164,7 +164,7 @@ async def guild_only_error_handler(exc: GuildOnlyError, ctx: crescent.Context) -
 @client.include
 @crescent.catch_command(ongaku.PlayerMissingError)
 async def player_missing_error_handler(
-    exc: ongaku.PlayerMissingError,
+    _exc: ongaku.PlayerMissingError,
     ctx: crescent.Context,
 ) -> None:
     await ctx.respond(
@@ -225,7 +225,7 @@ class Play:
 
         player = ongaku_client.create_player(ctx.guild_id)
 
-        if player.connected is False:
+        if player.is_connected is False:
             await player.connect(voice_state.channel_id)
 
         await player.play(track)

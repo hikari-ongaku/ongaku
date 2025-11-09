@@ -25,24 +25,23 @@ from __future__ import annotations
 
 import typing
 
+from ongaku.errors import BuildTypeError
 from ongaku.ext.youtube.youtube import RefreshTokenInformation
 from ongaku.ext.youtube.youtube import YouTube
 from ongaku.internal.routes import Route
 
 if typing.TYPE_CHECKING:
-    from ongaku.session import ControllableSession
+    from ongaku import session
 
 
 __all__ = (
     "fetch_youtube",
     "fetch_youtube_oauth",
-    "fetch_youtube_stream",
     "update_youtube",
 )
 
 
 GET_YOUTUBE: typing.Final[Route] = Route("GET", "/youtube")
-GET_YOUTUBE_STREAM: typing.Final[Route] = Route("GET", "/youtube/stream/{video_id}")
 GET_YOUTUBE_OAUTH: typing.Final[Route] = Route("GET", "/youtube/oauth/{refresh_token}")
 POST_YOUTUBE: typing.Final[Route] = Route("POST", "/youtube")
 
@@ -67,7 +66,7 @@ def _deserialize_refresh_token_information(
     )
 
 
-async def fetch_youtube(session: ControllableSession) -> YouTube | None:
+async def fetch_youtube(session: session.Session) -> YouTube | None:
     """Fetch Youtube.
 
     fetches the current YouTube information.
@@ -89,8 +88,8 @@ async def fetch_youtube(session: ControllableSession) -> YouTube | None:
 
     Raises
     ------
-    NoSessionsError
-        Raised when there is no available sessions for this request to take place.
+    SessionClientSessionMissingError
+        Raised when the client session has not been set.
     TimeoutError
         Raised when the request takes too long to respond.
     RestEmptyError
@@ -117,83 +116,13 @@ async def fetch_youtube(session: ControllableSession) -> YouTube | None:
         return None
 
     if not isinstance(response, typing.Mapping):
-        raise TypeError("Unexpected response type.")
+        raise BuildTypeError(typing.Mapping, type(response))
 
     return _deserialize_youtube(response)
 
 
-async def fetch_youtube_stream(
-    session: ControllableSession,
-    video_id: str,
-    *,
-    itag: str | None = None,
-    with_client: str | None = None,
-) -> None:
-    """Fetch YouTube Stream.
-
-    fetches the provided youtube stream.
-
-    ![Lavalink](../../assets/lavalink_logo.png){ .twemoji } [Reference](https://github.com/lavalink-devs/youtube-source?tab=readme-ov-file#get-youtubestreamvideoid)
-
-    Example
-    -------
-    ```py
-    token = await client.rest.fetch_youtube_stream()
-
-    print(token)
-    ```
-
-    Parameters
-    ----------
-    session
-        The session to use for this request.
-    video_id
-        The video ID to search for.
-    itag
-        The itag of the desired format.
-        If unspecified, youtube-source's default format selector will be used.
-    with_client
-        The identifier of the client to use for streaming.
-        Uses all clients if unspecified.
-
-    Raises
-    ------
-    NoSessionsError
-        Raised when there is no available sessions for this request to take place.
-    TimeoutError
-        Raised when the request takes too long to respond.
-    RestEmptyError
-        Raised when the response is 204, or 404.
-    RestStatusError
-        Raised when a 4XX or a 5XX status is received.
-    RestRequestError
-        Raised when a request fails, but Lavalink has more information.
-    RestError
-        Raised when an unknown error is caught.
-
-    Returns
-    -------
-    FIXME: Add missing return values.
-    """
-    route = GET_YOUTUBE_STREAM.build(video_id=video_id)
-
-    params: dict[str, typing.Any] | None = None
-    if itag is not None or with_client is not None:
-        params = {}
-
-        if itag is not None:
-            params["itag"] = itag
-
-        if with_client is not None:
-            params["withClient"] = with_client
-
-    _response = await session.request(route, params=params)
-
-    raise NotImplementedError  # FIXME: Update this.  # noqa: TD001, TD002, TD003
-
-
 async def fetch_youtube_oauth(
-    session: ControllableSession,
+    session: session.Session,
     refresh_token: str,
 ) -> RefreshTokenInformation:
     """Fetch YouTube Stream.
@@ -219,8 +148,8 @@ async def fetch_youtube_oauth(
 
     Raises
     ------
-    NoSessionsError
-        Raised when there is no available sessions for this request to take place.
+    SessionClientSessionMissingError
+        Raised when the client session has not been set.
     TimeoutError
         Raised when the request takes too long to respond.
     RestEmptyError
@@ -242,13 +171,13 @@ async def fetch_youtube_oauth(
     response = await session.request(route)
 
     if not isinstance(response, typing.Mapping):
-        raise TypeError("Unexpected response type.")
+        raise BuildTypeError(typing.Mapping, type(response))
 
     return _deserialize_refresh_token_information(response)
 
 
 async def update_youtube(
-    session: ControllableSession,
+    session: session.Session,
     *,
     refresh_token: str | None = None,
     skip_initialization: bool | None = None,
@@ -289,8 +218,8 @@ async def update_youtube(
     ------
     ValueError
         Raised when no values have been modified.
-    NoSessionsError
-        Raised when there is no available sessions for this request to take place.
+    SessionClientSessionMissingError
+        Raised when the client session has not been set.
     TimeoutError
         Raised when the request takes too long to respond.
     RestStatusError
@@ -308,7 +237,7 @@ async def update_youtube(
         and po_token is None
         and visitor_data is None
     ):
-        raise ValueError("At least one value must be modified.")
+        raise ValueError
 
     body: typing.Mapping[str, typing.Any] = {}
 

@@ -74,6 +74,9 @@ class RoutePlannerStatus:
 
         return self.cls == other.cls and self.details == other.details
 
+    def __hash__(self) -> int:
+        return hash((self.cls, self.details))
+
 
 class RoutePlannerDetails:
     """Routeplanner details.
@@ -161,6 +164,19 @@ class RoutePlannerDetails:
             and self.block_index == other.block_index
         )
 
+    def __hash__(self) -> int:
+        return hash(
+            (
+                self.ip_block,
+                self.failing_addresses,
+                self.rotate_index,
+                self.ip_index,
+                self.current_address,
+                self.current_address_index,
+                self.block_index,
+            ),
+        )
+
 
 class IPBlock:
     """IP Block.
@@ -191,6 +207,9 @@ class IPBlock:
             return False
 
         return self.type == other.type and self.size == other.size
+
+    def __hash__(self) -> int:
+        return hash((self.type, self.size))
 
 
 class FailingAddress:
@@ -236,6 +255,9 @@ class FailingAddress:
             and self.timestamp == other.timestamp
             and self.time == other.time
         )
+
+    def __hash__(self) -> int:
+        return hash((self.address, self.timestamp, self.time))
 
 
 class RoutePlannerType(str, enum.Enum):

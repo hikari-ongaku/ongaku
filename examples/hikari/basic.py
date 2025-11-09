@@ -223,7 +223,7 @@ async def play_command(event: hikari.GuildMessageCreateEvent) -> None:
 
     player = ongaku_client.create_player(event.guild_id)
 
-    if player.connected is False:
+    if player.is_connected is False:
         await player.connect(voice_state.channel_id)
 
     await player.play(track)

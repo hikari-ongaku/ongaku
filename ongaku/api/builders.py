@@ -83,7 +83,7 @@ class EntityBuilder:
         data = self._loads(payload) if isinstance(payload, str | bytes) else payload
 
         if not isinstance(data, typing.Mapping):
-            raise TypeError("Mapping is required.")
+            raise errors.BuildTypeError(typing.Mapping, type(data))
 
         return data
 
@@ -95,7 +95,7 @@ class EntityBuilder:
         data = self._loads(payload) if isinstance(payload, str | bytes) else payload
 
         if not isinstance(data, typing.Sequence):
-            raise TypeError("Sequence is required.")
+            raise errors.BuildTypeError(typing.Sequence, type(data))
 
         return data
 
@@ -185,7 +185,7 @@ class EntityBuilder:
         self,
         payload: types.PayloadMappingT,
         *,
-        session: session.ControllableSession,
+        session: session.Session,
     ) -> events.ReadyEvent:
         """Deserialize Ready Event.
 
@@ -222,7 +222,7 @@ class EntityBuilder:
         self,
         payload: types.PayloadMappingT,
         *,
-        session: session.ControllableSession,
+        session: session.Session,
     ) -> events.PlayerUpdateEvent:
         """Deserialize Player Update Event.
 
@@ -259,7 +259,7 @@ class EntityBuilder:
         self,
         payload: types.PayloadMappingT,
         *,
-        session: session.ControllableSession,
+        session: session.Session,
     ) -> events.StatisticsEvent:
         """Deserialize Statistics Event.
 
@@ -300,7 +300,7 @@ class EntityBuilder:
         self,
         payload: types.PayloadMappingT,
         *,
-        session: session.ControllableSession,
+        session: session.Session,
     ) -> events.TrackStartEvent:
         """Deserialize Track Start Event.
 
@@ -337,7 +337,7 @@ class EntityBuilder:
         self,
         payload: types.PayloadMappingT,
         *,
-        session: session.ControllableSession,
+        session: session.Session,
     ) -> events.TrackEndEvent:
         """Deserialize Track End Event.
 
@@ -375,7 +375,7 @@ class EntityBuilder:
         self,
         payload: types.PayloadMappingT,
         *,
-        session: session.ControllableSession,
+        session: session.Session,
     ) -> events.TrackExceptionEvent:
         """Deserialize Track Exception Event.
 
@@ -413,7 +413,7 @@ class EntityBuilder:
         self,
         payload: types.PayloadMappingT,
         *,
-        session: session.ControllableSession,
+        session: session.Session,
     ) -> events.TrackStuckEvent:
         """Deserialize Track Stuck Event.
 
@@ -451,7 +451,7 @@ class EntityBuilder:
         self,
         payload: types.PayloadMappingT,
         *,
-        session: session.ControllableSession,
+        session: session.Session,
     ) -> events.WebsocketClosedEvent:
         """Deserialize Websocket Closed Event.
 
@@ -810,10 +810,13 @@ class EntityBuilder:
 
     # player
 
-    def deserialize_player(self, payload: types.PayloadMappingT) -> player.Player:
-        """Deserialize Player.
+    def deserialize_player(
+        self,
+        payload: types.PayloadMappingT,
+    ) -> player.PartialPlayer:
+        """Deserialize Partial Player.
 
-        Deserializes a player object from a payload.
+        Deserializes a partial player object from a payload.
 
         Parameters
         ----------
@@ -822,7 +825,7 @@ class EntityBuilder:
 
         Returns
         -------
-        player_.Player
+        player_.PartialPlayer
             The object from the payload.
 
         Raises
@@ -834,7 +837,7 @@ class EntityBuilder:
         """
         data = self._ensure_mapping(payload)
 
-        return player.Player(
+        return player.PartialPlayer(
             guild_id=hikari.Snowflake(int(data["guildId"])),
             track=self.deserialize_track(data["track"])
             if data.get("track", None)
@@ -881,7 +884,7 @@ class EntityBuilder:
                 datetime.timezone.utc,
             ),
             position=data["position"],
-            connected=data["connected"],
+            is_connected=data["connected"],
             ping=data["ping"],
         )
 
@@ -1033,10 +1036,10 @@ class EntityBuilder:
     def deserialize_session(
         self,
         payload: types.PayloadMappingT,
-    ) -> session.Session:
-        """Deserialize Session.
+    ) -> session.PartialSession:
+        """Deserialize Partial Session.
 
-        Deserializes a session object from a payload.
+        Deserializes a partial session object from a payload.
 
         Parameters
         ----------
@@ -1045,7 +1048,7 @@ class EntityBuilder:
 
         Returns
         -------
-        session_.Session
+        session_.PartialSession
             The object from the payload.
 
         Raises
@@ -1057,7 +1060,10 @@ class EntityBuilder:
         """
         data = self._ensure_mapping(payload)
 
-        return session.Session(resuming=data["resuming"], timeout=data["timeout"])
+        return session.PartialSession(
+            resuming=data["resuming"],
+            timeout=data["timeout"],
+        )
 
     # statistics
 
@@ -1232,6 +1238,11 @@ class EntityBuilder:
 
 
 class FiltersBuilder(builders.FilterBuilder):
+    """Filters Builder.
+
+    A builder for creating filters for ongaku.
+    """
+
     __slots__: typing.Sequence[str] = (
         "_channel_mix",
         "_distortion",
@@ -1246,7 +1257,7 @@ class FiltersBuilder(builders.FilterBuilder):
         "_volume",
     )
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         *,
         volume: float | None = None,
@@ -1275,6 +1286,15 @@ class FiltersBuilder(builders.FilterBuilder):
 
     @classmethod
     def from_filter(cls, filters: filters.Filters) -> FiltersBuilder:
+        """From Filter.
+
+        Generate a filter builder from a filter object on a player.
+
+        Parameters
+        ----------
+        filters
+            The filter to use.
+        """
         return cls(
             volume=filters.volume,
             equalizer=[
@@ -1438,9 +1458,15 @@ class FiltersBuilder(builders.FilterBuilder):
         ----------
         volume
             The volume of the player. (Must be greater than 0.)
+
+        Raises
+        ------
+        ValueError
+            Raised when the volume is set below 0.
         """
         if volume <= 0:
-            raise ValueError("Volume must be at or above 0.")
+            raise ValueError
+
         self._volume = volume
 
         return self
@@ -1471,14 +1497,19 @@ class FiltersBuilder(builders.FilterBuilder):
         Parameters
         ----------
         band
-            The [BandType][ongaku.filters.BandType].
+            The band type to look for.
+
+        Raises
+        ------
+        IndexError
+            Raised when no values match the requested band.
         """
         for equalizer in self.equalizer:
             if equalizer.band == band:
                 self._equalizer.discard(equalizer)
                 return self
 
-        raise IndexError("No values found.")
+        raise IndexError
 
     def clear_equalizer(self) -> FiltersBuilder:
         """Clear Equalizer.
@@ -1894,7 +1925,7 @@ class FiltersBuilder(builders.FilterBuilder):
         self._plugin_filters = plugin_filters
         return self
 
-    def build(self) -> types.PayloadMappingT:
+    def build(self) -> types.PayloadMappingT:  # noqa: D102 This has an inherited documentation string.
         payload: dict[str, typing.Any] = {}
 
         if self.volume:
@@ -1941,6 +1972,23 @@ class FiltersBuilder(builders.FilterBuilder):
             and self.plugin_filters == other.plugin_filters
         )
 
+    def __hash__(self) -> int:
+        return hash(
+            (
+                self.volume,
+                self.equalizer,
+                self.karaoke,
+                self.timescale,
+                self.tremolo,
+                self.vibrato,
+                self.rotation,
+                self.distortion,
+                self.channel_mix,
+                self.low_pass,
+                self.plugin_filters,
+            ),
+        )
+
 
 class EqualizerBuilder(builders.FilterBuilder):
     __slots__: typing.Sequence[str] = ("_band", "_gain")
@@ -1967,6 +2015,9 @@ class EqualizerBuilder(builders.FilterBuilder):
             return False
 
         return self.band == other.band and self.gain == other.gain
+
+    def __hash__(self) -> int:
+        return hash(self.band)
 
 
 class KaraokeBuilder(builders.FilterBuilder):
@@ -2029,6 +2080,16 @@ class KaraokeBuilder(builders.FilterBuilder):
             and self.filter_width == other.filter_width
         )
 
+    def __hash__(self) -> int:
+        return hash(
+            (
+                self.level,
+                self.mono_level,
+                self.filter_band,
+                self.filter_width,
+            ),
+        )
+
 
 class TimescaleBuilder(builders.FilterBuilder):
     __slots__: typing.Sequence[str] = ("_pitch", "_rate", "_speed")
@@ -2076,6 +2137,15 @@ class TimescaleBuilder(builders.FilterBuilder):
             and self.rate == other.rate
         )
 
+    def __hash__(self) -> int:
+        return hash(
+            (
+                self.speed,
+                self.pitch,
+                self.rate,
+            ),
+        )
+
 
 class TremoloBuilder(builders.FilterBuilder):
     __slots__: typing.Sequence[str] = (
@@ -2105,6 +2175,9 @@ class TremoloBuilder(builders.FilterBuilder):
             return False
 
         return self.frequency == other.frequency and self.depth == other.depth
+
+    def __hash__(self) -> int:
+        return hash((self.frequency, self.depth))
 
 
 class VibratoBuilder(builders.FilterBuilder):
@@ -2136,6 +2209,9 @@ class VibratoBuilder(builders.FilterBuilder):
 
         return self.frequency == other.frequency and self.depth == other.depth
 
+    def __hash__(self) -> int:
+        return hash((self.frequency, self.depth))
+
 
 class RotationBuilder(builders.FilterBuilder):
     __slots__: typing.Sequence[str] = ("_rotation_hz",)
@@ -2156,6 +2232,9 @@ class RotationBuilder(builders.FilterBuilder):
             return False
 
         return self.rotation_hz == other.rotation_hz
+
+    def __hash__(self) -> int:
+        return hash(self.rotation_hz)
 
 
 class DistortionBuilder(builders.FilterBuilder):
@@ -2258,6 +2337,20 @@ class DistortionBuilder(builders.FilterBuilder):
             and self.scale == other.scale
         )
 
+    def __hash__(self) -> int:
+        return hash(
+            (
+                self.sin_offset,
+                self.sin_scale,
+                self.cos_offset,
+                self.cos_scale,
+                self.tan_offset,
+                self.tan_scale,
+                self.offset,
+                self.scale,
+            ),
+        )
+
 
 class ChannelMixBuilder(builders.FilterBuilder):
     __slots__: typing.Sequence[str] = (
@@ -2319,13 +2412,38 @@ class ChannelMixBuilder(builders.FilterBuilder):
             and self.right_to_right == other.right_to_right
         )
 
+    def __hash__(self) -> int:
+        return hash(
+            (
+                self.left_to_left,
+                self.left_to_right,
+                self.right_to_left,
+                self.right_to_right,
+            ),
+        )
+
 
 class LowPassBuilder(builders.FilterBuilder):
+    """Low Pass Builder.
+
+    An implementation of a low pass builder.
+
+    Parameters
+    ----------
+    smoothing
+        FIXME: Value
+
+    Raises
+    ------
+    ValueError
+        Raised when the smoothing value is set above 1.
+    """
+
     __slots__: typing.Sequence[str] = ("_smoothing",)
 
     def __init__(self, *, smoothing: float | None) -> None:
         if smoothing is not None and smoothing < 1:
-            raise ValueError("Frequency must be at or above 1.")
+            raise ValueError
 
         self._smoothing = smoothing
 
@@ -2344,3 +2462,6 @@ class LowPassBuilder(builders.FilterBuilder):
             return False
 
         return self.smoothing == other.smoothing
+
+    def __hash__(self) -> int:
+        return hash(self.smoothing)

@@ -1,4 +1,3 @@
-# ruff: noqa: D100, D103
 from __future__ import annotations
 
 from pathlib import Path
@@ -8,6 +7,7 @@ from nox import options
 
 PATH_TO_PROJECT = Path() / "ongaku"
 EXAMPLES_PATH = Path() / "examples"
+EXAMPLE_FOLDERS = ["arc", "crescent", "hikari", "lightbulb", "tanjun"]
 SCRIPT_PATHS = [
     PATH_TO_PROJECT,
     EXAMPLES_PATH,
@@ -48,6 +48,7 @@ def uv_sync(
         "--locked",
         *group_args,
         *extra_args,
+        silent=True,
         env={"UV_PROJECT_ENVIRONMENT": session.virtualenv.location},
     )
 
@@ -83,8 +84,7 @@ def format_check(session: nox.Session) -> None:
 
 @nox.session()
 def pyright(session: nox.Session) -> None:
-    uv_sync(session, groups=["dev"], extras=["injection", "speedups"])
-    session.install("-Ur", "examples/examples_requirements.txt")
+    uv_sync(session, groups=["dev", "examples"], extras=["injection", "speedups"])
     session.run("pyright", PATH_TO_PROJECT, EXAMPLES_PATH)
 
 

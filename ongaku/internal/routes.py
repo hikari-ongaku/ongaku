@@ -92,7 +92,7 @@ class Route:
         return f"{self.method} {self.path}"
 
     def __repr__(self) -> str:
-        return f"Route(method={self.method}, path={self.path}, include_version={self.include_version})"
+        return f"Route(method={self.method}, path={self.path}, include_version={self.include_version})"  # noqa: E501
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Route):
@@ -103,6 +103,9 @@ class Route:
             and self.path == other.path
             and self.include_version == other.include_version
         )
+
+    def __hash__(self) -> int:
+        return hash((self.method, self.path, self.include_version))
 
 
 class BuiltRoute:
@@ -136,7 +139,7 @@ class BuiltRoute:
         return f"{self.method} {self.path} ({self.route.path})"
 
     def __repr__(self) -> str:
-        return f"BuiltRoute(method={self.method}, path={self.path}, raw_path={self.route.path}"
+        return f"BuiltRoute(method={self.method}, path={self.path}, raw_path={self.route.path}"  # noqa: E501
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, BuiltRoute):
@@ -147,6 +150,9 @@ class BuiltRoute:
             and self.method == other.method
             and self.path == other.path
         )
+
+    def __hash__(self) -> int:
+        return hash((self.route, self.method, self.path))
 
 
 # Info

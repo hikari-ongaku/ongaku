@@ -27,9 +27,9 @@ import abc
 import typing
 
 if typing.TYPE_CHECKING:
+    from ongaku import session
     from ongaku.abc import events
     from ongaku.client import Client
-    from ongaku.client import ControllableSession
 
 __all__: typing.Sequence[str] = ("Extension",)
 
@@ -60,7 +60,7 @@ class Extension(abc.ABC):
     def event_handler(
         self,
         payload: typing.Mapping[str, typing.Any],
-        session: ControllableSession,
+        session: session.Session,
     ) -> events.OngakuEvent | None:
         """Event handler.
 

@@ -44,7 +44,7 @@ if typing.TYPE_CHECKING:
 
 
 __all__: typing.Sequence[str] = (
-    "ControllablePlayer",
+    "PartialPlayer",
     "Player",
     "State",
     "Voice",
@@ -53,7 +53,7 @@ __all__: typing.Sequence[str] = (
 _logger: typing.Final[logging.Logger] = logging.getLogger("ongaku.player")
 
 
-class Player:
+class PartialPlayer:
     """Player.
 
     All of the information about the player, for the specified guild.
@@ -130,7 +130,7 @@ class Player:
         return self._filters
 
     def __eq__(self, other: object) -> bool:
-        if not isinstance(other, Player):
+        if not isinstance(other, PartialPlayer):
             return False
 
         return (
@@ -141,6 +141,19 @@ class Player:
             and self.state == other.state
             and self.voice == other.voice
             and self.filters == other.filters
+        )
+
+    def __hash__(self) -> int:
+        return hash(
+            (
+                self.guild_id,
+                self.track,
+                self.volume,
+                self.is_paused,
+                self.state,
+                self.voice,
+                self.filters,
+            ),
         )
 
 
@@ -155,7 +168,7 @@ class State:
     _test: typing.Mapping[str, typing.Any] = {}
 
     __slots__: typing.Sequence[str] = (
-        "_connected",
+        "_is_connected",
         "_ping",
         "_position",
         "_time",
@@ -166,12 +179,12 @@ class State:
         *,
         time: datetime.datetime,
         position: int,
-        connected: bool,
+        is_connected: bool,
         ping: int,
     ) -> None:
         self._time = time
         self._position = position
-        self._connected = connected
+        self._is_connected = is_connected
         self._ping = ping
 
     @classmethod
@@ -183,7 +196,7 @@ class State:
         return cls(
             time=datetime.datetime.fromtimestamp(0, tz=datetime.timezone.utc),
             position=0,
-            connected=False,
+            is_connected=False,
             ping=-1,
         )
 
@@ -198,9 +211,9 @@ class State:
         return self._position
 
     @property
-    def connected(self) -> bool:
+    def is_connected(self) -> bool:
         """Whether Lavalink is connected to the voice gateway."""
-        return self._connected
+        return self._is_connected
 
     @property
     def ping(self) -> int:
@@ -221,9 +234,12 @@ class State:
         return (
             self.time == other.time
             and self.position == other.position
-            and self.connected == other.connected
+            and self.is_connected == other.is_connected
             and self.ping == other.ping
         )
+
+    def __hash__(self) -> int:
+        return hash((self.time, self.position, self.is_connected, self.ping))
 
 
 class Voice:
@@ -278,16 +294,19 @@ class Voice:
             and self.session_id == other.session_id
         )
 
+    def __hash__(self) -> int:
+        return hash((self.token, self.endpoint, self.session_id))
 
-class ControllablePlayer(Player):
-    """Controllable Player.
 
-    A player object that can be controlled and manipulated.
+class Player(PartialPlayer):
+    """Player.
+
+    A player object that can be controlled.
     """
 
     def __init__(
         self,
-        session: session.ControllableSession,
+        session: session.Session,
         guild: hikari.SnowflakeishOr[hikari.Guild],
     ) -> None:
         self._session = session
@@ -299,8 +318,6 @@ class ControllablePlayer(Player):
         self._state: State = State.empty()
         self._queue: typing.MutableSequence[track.Track] = []
         self._filters: filters.Filters | None = None
-        self._connected: bool = False
-        self._session_id: str | None = None
         self._volume: int = -1
         self._autoplay: bool = True
         self._position: int = 0
@@ -314,7 +331,7 @@ class ControllablePlayer(Player):
         )
 
     @property
-    def session(self) -> session.ControllableSession:
+    def session(self) -> session.Session:
         """The session this player is included in."""
         return self._session
 
@@ -351,7 +368,7 @@ class ControllablePlayer(Player):
     def autoplay(self) -> bool:
         """Autoplay.
 
-        Whether or not the next song will play, when this song ends.
+        Whether the next song will play, when this song ends.
         """
         return self._autoplay
 
@@ -361,12 +378,12 @@ class ControllablePlayer(Player):
         return self._loop
 
     @property
-    def connected(self) -> bool:
+    def is_connected(self) -> bool:
         """Connected.
 
-        Whether or not the player is connected to discords gateway.
+        Whether the player is connected to discords gateway.
         """
-        return self._connected
+        return self.state.is_connected
 
     @property
     def queue(self) -> typing.Sequence[track.Track]:
@@ -396,17 +413,19 @@ class ControllablePlayer(Player):
         channel
             The channel (or channel id) that you wish to connect the bot to.
         mute
-            Whether or not to mute the player.
+            Whether to mute the player.
         deaf
-            Whether or not to deafen the player.
+            Whether to deafen the player.
 
         Raises
         ------
         SessionStartError
             Raised when the players session has not yet been started.
-        PlayerConnectError
+        PlayerConnectEventMissingError
             Raised when the voice state of the bot cannot be updated,
             or the voice events required could not be received.
+        ValueError
+            Raised when the raw endpoint was not set.
         RestEmptyError
             Raised when a return type was requested, yet nothing was received.
         RestStatusError
@@ -458,14 +477,10 @@ class ControllablePlayer(Player):
                 ),
             )
         except TimeoutError as err:
-            raise errors.PlayerConnectError(
-                "Could not connect to voice channel due to unreceived events.",
-            ) from err
+            raise errors.PlayerConnectEventMissingError from err
 
         if server_event.raw_endpoint is None:
-            raise errors.PlayerConnectError(
-                "Endpoint missing for attempted server connection.",
-            ) from None
+            raise ValueError
 
         _logger.log(
             TRACE_LEVEL,
@@ -615,14 +630,14 @@ class ControllablePlayer(Player):
             raise errors.SessionStartError
 
         if self.channel_id is None:
-            raise errors.PlayerConnectError("Not connected to a channel.")
+            raise errors.PlayerNotConnectedError
 
         if len(self.queue) == 0 and track is None:
-            raise errors.PlayerQueueError("Queue is empty.")
+            raise errors.PlayerQueueEmptyError
 
         if track:
             if requestor:
-                track._requestor = hikari.Snowflake(requestor)
+                track._requestor = hikari.Snowflake(requestor)  # noqa: SLF001
 
             self._queue.insert(0, track)
 
@@ -676,7 +691,7 @@ class ControllablePlayer(Player):
 
         if isinstance(tracks, track.Track):
             if new_requestor:
-                tracks._requestor = new_requestor
+                tracks._requestor = new_requestor  # noqa: SLF001
             self._queue.append(tracks)
             track_count = 1
             return
@@ -686,7 +701,7 @@ class ControllablePlayer(Player):
 
         for t in tracks:
             if new_requestor:
-                t._requestor = new_requestor
+                t._requestor = new_requestor  # noqa: SLF001
             self._queue.append(t)
             track_count += 1
 
@@ -697,7 +712,7 @@ class ControllablePlayer(Player):
             self.guild_id,
         )
 
-    async def pause(self, value: bool | None = None, /) -> None:
+    async def pause(self, value: bool | None = None, /) -> None:  # noqa: FBT001
         """
         Pause the player.
 
@@ -735,7 +750,7 @@ class ControllablePlayer(Player):
         if session_id is None:
             raise errors.SessionStartError
 
-        if value:
+        if value is not None:
             self._is_paused = value
         else:
             self._is_paused = not self.is_paused
@@ -796,8 +811,6 @@ class ControllablePlayer(Player):
             session=self.session,
         )
 
-        self._is_paused = True
-
         _logger.log(
             TRACE_LEVEL,
             "Successfully stopped track in guild %s",
@@ -819,10 +832,8 @@ class ControllablePlayer(Player):
         PlayerQueueError
             Raised when the queue has 2 or less tracks in it.
         """
-        if len(self.queue) <= 2:
-            raise errors.PlayerQueueError(
-                "Queue must have more than 2 tracks to shuffle.",
-            )
+        if len(self.queue) <= 2:  # noqa: PLR2004
+            raise errors.PlayerQueueLengthError
 
         new_queue = list(self.queue)
 
@@ -875,11 +886,9 @@ class ControllablePlayer(Player):
             Raised when a construction of a ABC class fails.
         """
         if amount <= 0:
-            raise ValueError(
-                amount,
-            )  # FIXME: Not sure if I like this.  # noqa: TD001, TD002, TD003
+            raise ValueError
         if len(self.queue) == 0:
-            raise errors.PlayerQueueError("Queue is empty.")
+            raise errors.PlayerQueueEmptyError
 
         removed_tracks = 0
         for _ in range(amount):
@@ -887,14 +896,6 @@ class ControllablePlayer(Player):
                 break
             self._queue.pop(0)
             removed_tracks += 1
-
-        _logger.log(
-            TRACE_LEVEL,
-            "Successfully removed %s track(s) out of %s in guild %s",
-            removed_tracks,
-            amount,
-            self.guild_id,
-        )
 
         session_id = self.session.session_id
         if session_id is None:
@@ -921,20 +922,34 @@ class ControllablePlayer(Player):
 
             self._update(player)
 
+        _logger.log(
+            TRACE_LEVEL,
+            "Successfully removed %s track(s) out of %s in guild %s",
+            removed_tracks,
+            amount,
+            self.guild_id,
+        )
+
         _logger.log(TRACE_LEVEL, "Successfully skipped track in %s", self.guild_id)
 
-    def remove(self, value: track.Track | int, /) -> None:
+    async def remove(
+        self,
+        value: track.Track | int,
+        /,
+        play_next: bool = False,  # noqa: FBT001, FBT002
+    ) -> None:
         """Remove track.
 
         Removes the track, or the track in that position.
 
-        !!! warning
-            This does not stop the track if its in the first position.
+        If the track is in the first position,
+        it will also skip the current track,
+        and proceed to play the next one.
 
         Example
         -------
         ```py
-        await player.remove()
+        await player.remove(1)
         ```
 
         Parameters
@@ -943,30 +958,58 @@ class ControllablePlayer(Player):
             Remove a selected track. If [Track][ongaku.track.Track],
             then it will remove the first occurrence of that track.
             If an integer, it will remove the track at that position.
+        play_next
+            Starts playing the first track if removed, and this value is True.
+            Otherwise, the current track will just stop playing.
 
         Raises
         ------
+        SessionStartError
+            Raised when the players session has not yet been started.
+        RestEmptyError
+            Raised when a return type was requested, yet nothing was received.
+        RestStatusError
+            Raised when nothing was received, but a 4XX/5XX error was reported.
+        RestRequestError
+            Raised when a rest error is returned with a 4XX/5XX error.
+        BuildError
+            Raised when a construction of a ABC class fails.
         PlayerQueueError
             Raised when the removal of a track fails.
         """
+        session_id = self.session.session_id
+        if session_id is None:
+            raise errors.SessionStartError
+
         if len(self.queue) == 0:
-            raise errors.PlayerQueueError("Queue is empty.")
+            raise errors.PlayerQueueEmptyError
 
         try:
             index = (
                 self._queue.index(value) if isinstance(value, track.Track) else value
             )
-        except ValueError as err:
-            raise errors.PlayerQueueError(
-                "Failed to remove song.",
-            ) from err
 
-        try:
-            self._queue.pop(index)
-        except IndexError as err:
-            raise errors.PlayerQueueError(
-                "Failed to remove song in specified position.",
-            ) from err
+            del self._queue[index]
+        except (ValueError, IndexError) as err:
+            raise errors.PlayerQueueError from err
+
+        if index == 0:
+            if play_next:
+                player = await self.session.client.rest.update_player(
+                    session_id,
+                    self.guild_id,
+                    track=self.queue[0],
+                    session=self.session,
+                )
+            else:
+                player = await self.session.client.rest.update_player(
+                    session_id,
+                    self.guild_id,
+                    track=None,
+                    session=self.session,
+                )
+
+            self._update(player)
 
         _logger.log(TRACE_LEVEL, "Successfully removed track in %s", self.guild_id)
 
@@ -1005,7 +1048,6 @@ class ControllablePlayer(Player):
             session_id,
             self.guild_id,
             track=None,
-            no_replace=False,
             session=self.session,
         )
 
@@ -1013,7 +1055,7 @@ class ControllablePlayer(Player):
 
         _logger.log(TRACE_LEVEL, "Successfully cleared queue in %s", self.guild_id)
 
-    def set_autoplay(self, enable: bool | None = None, /) -> bool:
+    def set_autoplay(self, value: bool | None = None, /) -> bool:  # noqa: FBT001
         """
         Set autoplay.
 
@@ -1027,12 +1069,12 @@ class ControllablePlayer(Player):
 
         Parameters
         ----------
-        enable
-            Whether or not to enable autoplay.
-            If left empty, it will toggle the current status.
+        value
+            The value to set the loop status to.
+            If left empty, it will toggle the current loop status.
         """
-        if enable:
-            self._autoplay = enable
+        if value is not None:
+            self._autoplay = value
             return self._autoplay
 
         self._autoplay = not self._autoplay
@@ -1064,7 +1106,7 @@ class ControllablePlayer(Player):
         SessionStartError
             Raised when the players session has not yet been started.
         ValueError
-            Raised when the value is below 0, or above 1000.
+            Raised when the volume is set below 0.
         RestEmptyError
             Raised when a return type was requested, yet nothing was received.
         RestStatusError
@@ -1073,16 +1115,15 @@ class ControllablePlayer(Player):
             Raised when a rest error is returned with a 4XX/5XX error.
         BuildError
             Raised when a construction of a ABC class fails.
+        ValueError
+            Raised when the volume is set to less than 0.
         """
         session_id = self.session.session_id
         if session_id is None:
             raise errors.SessionStartError
 
-        if volume:
-            if volume < 0:
-                raise ValueError("Volume cannot be below zero.")
-            if volume > 1000:
-                raise ValueError("Volume cannot be above 1000.")
+        if volume and volume < 0:
+            raise ValueError
 
         player = await self.session.client.rest.update_player(
             session_id,
@@ -1141,15 +1182,13 @@ class ControllablePlayer(Player):
             raise errors.SessionStartError
 
         if value <= 0:
-            raise ValueError("Negative value is not allowed.")
+            raise ValueError
 
         if len(self.queue) <= 0:
-            raise errors.PlayerQueueError("Queue is empty.")
+            raise errors.PlayerQueueEmptyError
 
         if self.queue[0].info.length < value:
-            raise ValueError(
-                "A value greater than the current tracks length is not allowed.",
-            )
+            raise ValueError
 
         player = await self.session.client.rest.update_player(
             session_id,
@@ -1201,7 +1240,7 @@ class ControllablePlayer(Player):
 
         self._update(player)
 
-    def set_loop(self, enable: bool | None = None, /) -> bool:
+    def set_loop(self, value: bool | None = None, /) -> bool:  # noqa: FBT001
         """
         Set loop.
 
@@ -1215,12 +1254,12 @@ class ControllablePlayer(Player):
 
         Parameters
         ----------
-        enable
-            Whether or not to enable looping.
-            If left empty, it will toggle the current status.
+        value
+            The value to set the loop status to.
+            If left empty, it will toggle the current loop status.
         """
-        if enable:
-            self._loop = enable
+        if value is not None:
+            self._loop = value
             return self._loop
 
         self._loop = not self._loop
@@ -1230,8 +1269,8 @@ class ControllablePlayer(Player):
     async def transfer(
         self,
         *,
-        session: session.ControllableSession,
-    ) -> ControllablePlayer:
+        session: session.Session,
+    ) -> Player:
         """Transfer.
 
         Transfer this player to another session.
@@ -1257,15 +1296,15 @@ class ControllablePlayer(Player):
             session.name,
         )
 
-        new_player = ControllablePlayer(session, self.guild_id)
+        new_player = Player(session, self.guild_id)
 
         new_player.add(self.queue)
 
-        if self.connected and self.channel_id:
+        if self.is_connected and self.channel_id:
             await self.disconnect()
 
             await new_player.connect(self.channel_id)
-            if self.is_paused is False:
+            if self.is_paused is False and self.track is not None:
                 await new_player.play()
                 await new_player.set_position(self.position)
 
@@ -1279,7 +1318,7 @@ class ControllablePlayer(Player):
 
         return new_player
 
-    def _update(self, player: Player, /) -> None:
+    def _update(self, player: PartialPlayer, /) -> None:
         _logger.log(
             TRACE_LEVEL,
             "Updating player for channel: %s in guild: %s",
@@ -1292,7 +1331,6 @@ class ControllablePlayer(Player):
         self._state = player.state
         self._voice = player.voice
         self._filters = player.filters
-        self._connected = player.state.connected
         self._track = player.track
 
     async def _track_end_event(self, event: events.TrackEndEvent) -> None:
@@ -1343,7 +1381,7 @@ class ControllablePlayer(Player):
                 old_track=self.queue[0],
             )
 
-            self.remove(0)
+            await self.remove(0)
 
             self.app.event_manager.dispatch(new_event, return_tasks=False)
 
@@ -1356,7 +1394,7 @@ class ControllablePlayer(Player):
                 self.channel_id,
                 self.guild_id,
             )
-            self.remove(0)
+            await self.remove(0)
 
         _logger.log(
             TRACE_LEVEL,
@@ -1397,14 +1435,4 @@ class ControllablePlayer(Player):
             self.guild_id,
         )
 
-        if not event.state.connected and self.connected:
-            await self.stop()
-
-        _logger.log(
-            TRACE_LEVEL,
-            "Successfully updated player state in %s",
-            self.guild_id,
-        )
-
         self._state = event.state
-        self._connected = event.state.connected

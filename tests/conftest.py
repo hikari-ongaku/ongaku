@@ -6,8 +6,8 @@ from unittest import mock
 import pytest
 
 from ongaku.client import Client
-from ongaku.player import ControllablePlayer
-from ongaku.session import ControllableSession
+from ongaku.player import Player
+from ongaku.session import Session
 
 if typing.TYPE_CHECKING:
     import hikari
@@ -24,8 +24,8 @@ def ongaku_client(hikari_app: hikari.GatewayBotAware) -> Client:
 
 
 @pytest.fixture
-def ongaku_session(ongaku_client: Client) -> ControllableSession:
-    return ControllableSession(
+def ongaku_session(ongaku_client: Client) -> Session:
+    return Session(
         ongaku_client,
         name="name",
         ssl=False,
@@ -36,8 +36,8 @@ def ongaku_session(ongaku_client: Client) -> ControllableSession:
 
 
 @pytest.fixture
-def ongaku_player(ongaku_session: ControllableSession) -> ControllablePlayer:
-    return ControllablePlayer(
+def ongaku_player(ongaku_session: Session) -> Player:
+    return Player(
         ongaku_session,
         123,
     )

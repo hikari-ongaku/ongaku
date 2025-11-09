@@ -41,14 +41,15 @@ from ongaku.internal.logging import TRACE_LEVEL
 if typing.TYPE_CHECKING:
     import hikari
 
+    from ongaku import player
     from ongaku.abc import handlers
+    from ongaku.abc.events import OngakuEvent
     from ongaku.client import Client
     from ongaku.internal import routes
-    from ongaku.player import ControllablePlayer
 
 
 __all__: typing.Sequence[str] = (
-    "ControllableSession",
+    "PartialSession",
     "Session",
     "SessionStatus",
 )
@@ -56,8 +57,26 @@ __all__: typing.Sequence[str] = (
 
 _logger: typing.Final[logging.Logger] = logging.getLogger("ongaku.session")
 
+WEBSOCKET_TIMEOUT: typing.Final[int] = 60
 
-class Session:
+
+class DeserializeEvent(typing.Protocol):
+    def __call__(
+        self,
+        payload: types.PayloadMappingT,
+        *,
+        session: Session,
+    ) -> OngakuEvent: ...
+
+
+class PartialSession:
+    """Partial Session.
+
+    A partial session object with connection information.
+
+    ![Lavalink](../assets/lavalink_logo.png){ .twemoji } [Reference](https://lavalink.dev/api/rest#session-api)
+    """
+
     __slots__: typing.Sequence[str] = ("_resuming", "_timeout")
 
     def __init__(self, *, resuming: bool, timeout: int) -> None:
@@ -66,23 +85,28 @@ class Session:
 
     @property
     def resuming(self) -> bool:
+        """Whether resuming is enabled for the session."""
         return self._resuming
 
     @property
     def timeout(self) -> int:
+        """The timeout before the session is removed."""
         return self._timeout
 
     def __eq__(self, other: object) -> bool:
-        if not isinstance(other, Session):
+        if not isinstance(other, PartialSession):
             return False
 
         return self.resuming == other.resuming and self.timeout == other.timeout
 
+    def __hash__(self) -> int:
+        return hash((self.timeout, self.resuming))
 
-class ControllableSession:
+
+class Session:
     """Session.
 
-    The base session object.
+    A session that has functions to control and manipulate with.
 
     Parameters
     ----------
@@ -104,9 +128,11 @@ class ControllableSession:
         "_base_uri",
         "_client",
         "_client_session",
+        "_event_type_mapping",
         "_extensions",
         "_host",
         "_name",
+        "_op_code_mapping",
         "_password",
         "_players",
         "_port",
@@ -136,9 +162,27 @@ class ControllableSession:
         self._session_id: str | None = None
         self._session_task: asyncio.Task[None] | None = None
         self._status = SessionStatus.NOT_CONNECTED
-        self._players: typing.MutableMapping[hikari.Snowflake, ControllablePlayer] = {}
+        self._players: typing.MutableMapping[hikari.Snowflake, player.Player] = {}
         self._client_session = None
-        self._extensions = client._extensions  # noqa: SLF001 FIXME: Maybe find a smarter way to do this.
+        self._extensions = client._extensions  # noqa: SLF001
+        self._op_code_mapping: dict[
+            str,
+            DeserializeEvent,
+        ] = {
+            "ready": self.client.builder.deserialize_ready_event,
+            "playerUpdate": self.client.builder.deserialize_player_update_event,
+            "stats": self.client.builder.deserialize_statistics_event,
+        }
+        self._event_type_mapping: dict[
+            str,
+            DeserializeEvent,
+        ] = {
+            "TrackStartEvent": self.client.builder.deserialize_track_start_event,
+            "TrackEndEvent": self.client.builder.deserialize_track_end_event,
+            "TrackExceptionEvent": self.client.builder.deserialize_track_exception_event,  # noqa: E501
+            "TrackStuckEvent": self.client.builder.deserialize_track_stuck_event,
+            "WebSocketClosedEvent": self.client.builder.deserialize_websocket_closed_event,  # noqa: E501
+        }
 
     @property
     def client(self) -> Client:
@@ -199,13 +243,18 @@ class ControllableSession:
         """Start.
 
         Starts up the session, to receive events.
+
+        Raises
+        ------
+        SessionStartError
+            Raised when the bot information cannot be found.
         """
         self._client_session = client_session
 
         bot = self.app.get_me()
 
-        if not bot:
-            raise errors.SessionStartError("Could not fetch the bot information.")
+        if bot is None:
+            raise errors.SessionMissingBotInformationError
 
         bot_name = "unknown"
         if bot.global_name is not None:
@@ -331,39 +380,32 @@ class ControllableSession:
                                 msg.extra,
                             )
 
-            except Exception as err:  # noqa: BLE001, PERF203
-                timeout_delay = 60
-
+            except Exception as err:  # noqa: BLE001
                 _logger.warning(
                     "Websocket connection failure: %s reattempting in %ss",
                     err,
-                    timeout_delay,
+                    WEBSOCKET_TIMEOUT,
                 )
-                self._status = SessionStatus.NOT_CONNECTED
-                await asyncio.sleep(timeout_delay)
+            else:
+                _logger.warning(
+                    "Websocket went away. reattempting in %ss",
+                    WEBSOCKET_TIMEOUT,
+                )
+
+            self._status = SessionStatus.NOT_CONNECTED
+            await asyncio.sleep(WEBSOCKET_TIMEOUT)
 
     def _handle_payload(self, data: str) -> hikari.Event | None:
         mapped_data = types.json_loads(data)
 
         if isinstance(mapped_data, typing.Sequence):
-            raise errors.BuildError(
-                "Expected 'typing.Mapping' but received 'typing.Sequence'",
-            )
+            raise errors.BuildTypeError(typing.Mapping, typing.Sequence)
 
         op_code = mapped_data["op"]
 
         event: hikari.Event | None = None
 
-        op_code_mapping: dict[
-            str,
-            typing.Any,
-        ] = {  # FIXME: I hate that this uses typing.Any, it should technically be a callable
-            "ready": self.client.builder.deserialize_ready_event,
-            "playerUpdate": self.client.builder.deserialize_player_update_event,
-            "stats": self.client.builder.deserialize_statistics_event,
-        }
-
-        if (deserializer := op_code_mapping.get(op_code)) is not None:
+        if (deserializer := self._op_code_mapping.get(op_code)) is not None:
             event = deserializer(
                 mapped_data,
                 session=self,
@@ -375,15 +417,7 @@ class ControllableSession:
         elif op_code == "event":
             event_type = mapped_data["type"]
 
-            event_type_mapping: dict[str, typing.Any] = {
-                "TrackStartEvent": self.client.builder.deserialize_track_start_event,
-                "TrackEndEvent": self.client.builder.deserialize_track_end_event,
-                "TrackExceptionEvent": self.client.builder.deserialize_track_exception_event,
-                "TrackStuckEvent": self.client.builder.deserialize_track_stuck_event,
-                "WebSocketClosedEvent": self.client.builder.deserialize_websocket_closed_event,
-            }
-
-            if (deserializer := event_type_mapping.get(event_type)) is not None:
+            if (deserializer := self._event_type_mapping.get(event_type)) is not None:
                 event = deserializer(
                     mapped_data,
                     session=self,
@@ -427,7 +461,7 @@ class ControllableSession:
         optional: typing.Literal[True] = True,
     ) -> typing.Sequence[str] | typing.Mapping[str, typing.Any] | str | None: ...
 
-    async def request(
+    async def request(  # noqa: C901, PLR0912
         self,
         route: routes.BuiltRoute,
         *,
@@ -452,7 +486,7 @@ class ControllableSession:
         params
             The parameters to send.
         ignore_default_headers
-            Whether to ignore the default headers or not.
+            Whether to ignore the default headers.
         optional
             Whether the response is optional.
 
@@ -463,6 +497,8 @@ class ControllableSession:
 
         Raises
         ------
+        SessionClientSessionMissingError
+            Raised when the client session has not been set.
         TimeoutError
             Raised when the request takes too long to respond.
         RestEmptyError
@@ -477,7 +513,7 @@ class ControllableSession:
             Raised when an unknown error is caught.
         """
         if self._client_session is None:
-            raise errors.SessionStartError
+            raise errors.SessionClientSessionMissingError
 
         new_headers: typing.MutableMapping[str, typing.Any] = dict(headers or {})
 
@@ -522,19 +558,17 @@ class ControllableSession:
                 return None
             raise errors.RestEmptyError
 
-        if response.status >= http.HTTPStatus.BAD_REQUEST:
-            payload = await response.text()
+        payload = await response.text()
 
+        if response.status >= http.HTTPStatus.BAD_REQUEST:
             if len(payload) == 0:
-                raise errors.RestStatusError(response.status, response.reason)
+                raise errors.RestStatusError(response.status.real, response.reason)
 
             try:
                 rest_error = self.client.builder.deserialize_rest_error(payload)
             except Exception as err:
                 raise errors.RestStatusError(response.status, response.reason) from err
             raise rest_error
-
-        payload = await response.text()
 
         if response.content_type == "application/json":
             try:
@@ -558,6 +592,13 @@ class ControllableSession:
         ----------
         handler
             The session handler, that will allow this session to move its players too.
+
+        Raises
+        ------
+        NoSessionError
+            Raised when there is no available sessions for the handler to return.
+        SessionMissingError
+            Raised when a session is requested, but does not exist.
         """
         session = handler.get_session()
 
@@ -581,7 +622,7 @@ class ControllableSession:
         )
 
     def __eq__(self, other: object) -> bool:
-        if not isinstance(other, ControllableSession):
+        if not isinstance(other, Session):
             return False
 
         return (
@@ -592,6 +633,19 @@ class ControllableSession:
             and self.password == other.password
             and self.base_uri == other.base_uri
             and self.status == other.status
+        )
+
+    def __hash__(self) -> int:
+        return hash(
+            (
+                self.name,
+                self.ssl,
+                self.host,
+                self.port,
+                self.password,
+                self.base_uri,
+                self.status,
+            ),
         )
 
 

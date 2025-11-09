@@ -37,26 +37,32 @@ from ongaku.api import BasicHandler
 from ongaku.api import FiltersBuilder
 from ongaku.client import Client
 from ongaku.errors import BuildError
+from ongaku.errors import BuildTypeError
+from ongaku.errors import BuildUnknownVariantError
 from ongaku.errors import ClientAliveError
 from ongaku.errors import ClientError
 from ongaku.errors import ExceptionError
 from ongaku.errors import NoSessionsError
 from ongaku.errors import OngakuError
 from ongaku.errors import PlayerConnectError
+from ongaku.errors import PlayerConnectEventMissingError
 from ongaku.errors import PlayerError
 from ongaku.errors import PlayerMissingError
 from ongaku.errors import PlayerNotConnectedError
+from ongaku.errors import PlayerQueueEmptyError
 from ongaku.errors import PlayerQueueError
+from ongaku.errors import PlayerQueueLengthError
 from ongaku.errors import RestEmptyError
 from ongaku.errors import RestError
 from ongaku.errors import RestRequestError
 from ongaku.errors import RestStatusError
+from ongaku.errors import SessionClientSessionMissingError
 from ongaku.errors import SessionError
 from ongaku.errors import SessionHandlerError
+from ongaku.errors import SessionMissingBotInformationError
 from ongaku.errors import SessionMissingError
 from ongaku.errors import SessionStartError
 from ongaku.errors import SeverityType
-from ongaku.errors import TimeoutError
 from ongaku.events import PayloadEvent
 from ongaku.events import PlayerUpdateEvent
 from ongaku.events import QueueEmptyEvent
@@ -80,12 +86,12 @@ from ongaku.internal.about import __license__
 from ongaku.internal.about import __maintainer__
 from ongaku.internal.about import __url__
 from ongaku.internal.about import __version__
-from ongaku.player import ControllablePlayer
+from ongaku.player import PartialPlayer
 from ongaku.player import Player
 from ongaku.playlist import Playlist
 from ongaku.routeplanner import IPBlockType
 from ongaku.routeplanner import RoutePlannerStatus
-from ongaku.session import ControllableSession
+from ongaku.session import PartialSession
 from ongaku.session import Session
 from ongaku.session import SessionStatus
 from ongaku.statistics import Statistics
@@ -95,11 +101,11 @@ __all__ = (
     "BandType",
     "BasicHandler",
     "BuildError",
+    "BuildTypeError",
+    "BuildUnknownVariantError",
     "Client",
     "ClientAliveError",
     "ClientError",
-    "ControllablePlayer",
-    "ControllableSession",
     "ExceptionError",
     "Filters",
     "FiltersBuilder",
@@ -108,13 +114,18 @@ __all__ = (
     "NoSessionsError",
     "OngakuError",
     "OngakuEvent",
+    "PartialPlayer",
+    "PartialSession",
     "PayloadEvent",
     "Player",
     "PlayerConnectError",
+    "PlayerConnectEventMissingError",
     "PlayerError",
     "PlayerMissingError",
     "PlayerNotConnectedError",
+    "PlayerQueueEmptyError",
     "PlayerQueueError",
+    "PlayerQueueLengthError",
     "PlayerUpdateEvent",
     "Playlist",
     "QueueEmptyEvent",
@@ -127,19 +138,20 @@ __all__ = (
     "RestStatusError",
     "RoutePlannerStatus",
     "Session",
+    "SessionClientSessionMissingError",
     "SessionConnectedEvent",
     "SessionDisconnectedEvent",
     "SessionError",
     "SessionErrorEvent",
     "SessionEvent",
     "SessionHandlerError",
+    "SessionMissingBotInformationError",
     "SessionMissingError",
     "SessionStartError",
     "SessionStatus",
     "SeverityType",
     "Statistics",
     "StatisticsEvent",
-    "TimeoutError",
     "Track",
     "TrackEndEvent",
     "TrackEvent",

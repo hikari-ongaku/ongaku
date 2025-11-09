@@ -30,9 +30,9 @@ if typing.TYPE_CHECKING:
     import aiohttp
     import hikari
 
+    from ongaku import player
+    from ongaku import session
     from ongaku.client import Client
-    from ongaku.player import ControllablePlayer
-    from ongaku.session import ControllableSession
 
 __all__: typing.Sequence[str] = ("Handler",)
 
@@ -61,17 +61,17 @@ class Handler(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def sessions(self) -> typing.Sequence[ControllableSession]:
+    def sessions(self) -> typing.Sequence[session.Session]:
         """The sessions attached to this handler."""
 
     @property
     @abc.abstractmethod
-    def players(self) -> typing.Sequence[ControllablePlayer]:
+    def players(self) -> typing.Sequence[player.Player]:
         """The players attached to this handler."""
 
     @property
     def is_alive(self) -> bool:
-        """Whether the handler is alive or not."""
+        """Whether the handler is alive."""
         return self._is_alive
 
     @abc.abstractmethod
@@ -95,7 +95,7 @@ class Handler(abc.ABC):
         """
 
     @abc.abstractmethod
-    def add_session(self, session: ControllableSession) -> ControllableSession:
+    def add_session(self, session: session.Session) -> session.Session:
         """Add a session.
 
         Add a new session to the session handler.
@@ -112,7 +112,7 @@ class Handler(abc.ABC):
         """
 
     @abc.abstractmethod
-    def get_session(self, name: str | None = None) -> ControllableSession:
+    def get_session(self, name: str | None = None) -> session.Session:
         """Fetch a session.
 
         Returns a valid session.
@@ -161,7 +161,7 @@ class Handler(abc.ABC):
         """
 
     @abc.abstractmethod
-    def add_player(self, player: ControllablePlayer) -> ControllablePlayer:
+    def add_player(self, player: player.Player) -> player.Player:
         """Add a player.
 
         Add a new player to the session handler.
@@ -181,7 +181,7 @@ class Handler(abc.ABC):
     def get_player(
         self,
         guild: hikari.SnowflakeishOr[hikari.Guild],
-    ) -> ControllablePlayer:
+    ) -> player.Player:
         """Fetch a player.
 
         Fetches an existing player.

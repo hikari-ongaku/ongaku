@@ -29,9 +29,9 @@ import typing
 import hikari
 
 if typing.TYPE_CHECKING:
+    from ongaku import session
     from ongaku import track
     from ongaku.client import Client
-    from ongaku.session import ControllableSession
 
 __all__: typing.Sequence[str] = ("OngakuEvent", "QueueEvent", "TrackEvent")
 
@@ -51,7 +51,7 @@ class OngakuEvent(hikari.Event, abc.ABC):
 
     @property
     @abc.abstractmethod
-    def session(self) -> ControllableSession:
+    def session(self) -> session.Session:
         """The session attached to the event."""
 
 

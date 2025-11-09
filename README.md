@@ -62,7 +62,7 @@ To install ongaku, run the following command:
 pip install -U hikari-ongaku
 ```
 
-To check if ongaku has successfully installed or not, run the following command:
+To check if ongaku has successfully installed, run the following command:
 
 ```sh
 python3 -m ongaku

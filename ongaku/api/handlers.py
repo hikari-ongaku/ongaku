@@ -36,9 +36,9 @@ from ongaku.session import SessionStatus
 if typing.TYPE_CHECKING:
     import aiohttp
 
+    from ongaku import player
+    from ongaku import session
     from ongaku.client import Client
-    from ongaku.player import ControllablePlayer
-    from ongaku.session import ControllableSession
 
 __all__: typing.Sequence[str] = ("BasicHandler",)
 
@@ -61,24 +61,24 @@ class BasicHandler(Handler):
     def __init__(self, client: Client) -> None:
         self._client = client
         self._is_alive = False
-        self._current_session: ControllableSession | None = None
-        self._sessions: typing.MutableMapping[str, ControllableSession] = {}
-        self._players: typing.MutableMapping[hikari.Snowflake, ControllablePlayer] = {}
+        self._current_session: session.Session | None = None
+        self._sessions: typing.MutableMapping[str, session.Session] = {}
+        self._players: typing.MutableMapping[hikari.Snowflake, player.Player] = {}
         self._client_session = None
 
     @property
     @te.override
-    def sessions(self) -> typing.Sequence[ControllableSession]:
-        return tuple(self._sessions.values())
+    def sessions(self) -> typing.Sequence[session.Session]:
+        return list(self._sessions.values())
 
     @property
     @te.override
-    def players(self) -> typing.Sequence[ControllablePlayer]:
-        return tuple(self._players.values())
+    def players(self) -> typing.Sequence[player.Player]:
+        return list(self._players.values())
 
     @property
     def is_alive(self) -> bool:
-        """Whether the handler is alive or not."""
+        """Whether the handler is alive."""
         return self._is_alive
 
     @te.override
@@ -91,17 +91,16 @@ class BasicHandler(Handler):
 
     @te.override
     async def stop(self) -> None:
-        for session in self.sessions:
-            await session.stop()
+        await asyncio.gather(*[i.stop() for i in self.sessions])
 
         self._players.clear()
 
         self._is_alive = False
 
     @te.override
-    def add_session(self, session: ControllableSession) -> ControllableSession:
-        if self._is_alive and self._client_session is None:
-            raise errors.SessionHandlerError("Missing client session.")
+    def add_session(self, session: session.Session) -> session.Session:
+        if self.is_alive and self._client_session is None:
+            raise errors.SessionClientSessionMissingError
 
         if self._is_alive and self._client_session is not None:
             asyncio.create_task(session.start(self._client_session))  # noqa: RUF006 This will not last long enough to matter.
@@ -113,7 +112,7 @@ class BasicHandler(Handler):
         raise KeyError
 
     @te.override
-    def get_session(self, name: str | None = None) -> ControllableSession:
+    def get_session(self, name: str | None = None) -> session.Session:
         if len(self._sessions) == 0:
             raise errors.NoSessionsError
 
@@ -137,10 +136,13 @@ class BasicHandler(Handler):
         except KeyError as err:
             raise errors.SessionMissingError from err
 
+        if self._current_session is session:
+            self._current_session = None
+
         await session.stop()
 
     @te.override
-    def add_player(self, player: ControllablePlayer) -> ControllablePlayer:
+    def add_player(self, player: player.Player) -> player.Player:
         if self._players.get(player.guild_id, None) is not None:
             raise KeyError
 
@@ -152,13 +154,13 @@ class BasicHandler(Handler):
     def get_player(
         self,
         guild: hikari.SnowflakeishOr[hikari.Guild],
-    ) -> ControllablePlayer:
+    ) -> player.Player:
         player = self._players.get(hikari.Snowflake(guild))
 
-        if player:
-            return player
+        if not player:
+            raise errors.PlayerMissingError
 
-        raise errors.PlayerMissingError
+        return player
 
     @te.override
     async def delete_player(

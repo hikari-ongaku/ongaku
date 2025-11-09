@@ -37,7 +37,6 @@ if typing.TYPE_CHECKING:
     from ongaku import statistics
     from ongaku import track
     from ongaku.client import Client
-    from ongaku.session import ControllableSession
 
 __all__ = (
     "PayloadEvent",
@@ -68,7 +67,7 @@ class PayloadEvent(events.OngakuEvent):
         self,
         app: hikari.RESTAware,
         client: Client,
-        session: session.ControllableSession,
+        session: session.Session,
         *,
         payload: str,
     ) -> None:
@@ -80,7 +79,7 @@ class PayloadEvent(events.OngakuEvent):
     @classmethod
     def from_session(
         cls,
-        session: session.ControllableSession,
+        session: session.Session,
         *,
         payload: str,
     ) -> PayloadEvent:
@@ -88,15 +87,15 @@ class PayloadEvent(events.OngakuEvent):
         return cls(session.app, session.client, session, payload=payload)
 
     @property
-    def app(self) -> hikari.RESTAware:
+    def app(self) -> hikari.RESTAware:  # noqa: D102 This has an inherited documentation string.
         return self._app
 
     @property
-    def client(self) -> Client:
+    def client(self) -> Client:  # noqa: D102 This has an inherited documentation string.
         return self._client
 
     @property
-    def session(self) -> ControllableSession:
+    def session(self) -> session.Session:  # noqa: D102 This has an inherited documentation string.
         return self._session
 
     @property
@@ -109,6 +108,9 @@ class PayloadEvent(events.OngakuEvent):
             return False
 
         return self.payload == other.payload
+
+    def __hash__(self) -> int:
+        return hash(self.payload)
 
 
 class ReadyEvent(events.OngakuEvent):
@@ -132,7 +134,7 @@ class ReadyEvent(events.OngakuEvent):
         self,
         app: hikari.RESTAware,
         client: Client,
-        session: session.ControllableSession,
+        session: session.Session,
         *,
         resumed: bool,
         session_id: str,
@@ -146,7 +148,7 @@ class ReadyEvent(events.OngakuEvent):
     @classmethod
     def from_session(
         cls,
-        session: session.ControllableSession,
+        session: session.Session,
         *,
         resumed: bool,
         session_id: str,
@@ -161,20 +163,20 @@ class ReadyEvent(events.OngakuEvent):
         )
 
     @property
-    def app(self) -> hikari.RESTAware:
+    def app(self) -> hikari.RESTAware:  # noqa: D102 This has an inherited documentation string.
         return self._app
 
     @property
-    def client(self) -> Client:
+    def client(self) -> Client:  # noqa: D102 This has an inherited documentation string.
         return self._client
 
     @property
-    def session(self) -> ControllableSession:
+    def session(self) -> session.Session:  # noqa: D102 This has an inherited documentation string.
         return self._session
 
     @property
     def resumed(self) -> bool:
-        """Whether or not the session has been resumed, or is a new session."""
+        """Whether the session has been resumed, or is a new session."""
         return self._resumed
 
     @property
@@ -187,6 +189,9 @@ class ReadyEvent(events.OngakuEvent):
             return False
 
         return self.resumed == other.resumed and self.session_id == other.session_id
+
+    def __hash__(self) -> int:
+        return hash((self.resumed, self.session_id))
 
 
 class PlayerUpdateEvent(events.OngakuEvent):
@@ -209,7 +214,7 @@ class PlayerUpdateEvent(events.OngakuEvent):
         self,
         app: hikari.RESTAware,
         client: Client,
-        session: session.ControllableSession,
+        session: session.Session,
         *,
         guild_id: hikari.Snowflake,
         state: player.State,
@@ -223,7 +228,7 @@ class PlayerUpdateEvent(events.OngakuEvent):
     @classmethod
     def from_session(
         cls,
-        session: session.ControllableSession,
+        session: session.Session,
         *,
         guild_id: hikari.Snowflake,
         state: player.State,
@@ -232,15 +237,15 @@ class PlayerUpdateEvent(events.OngakuEvent):
         return cls(session.app, session.client, session, guild_id=guild_id, state=state)
 
     @property
-    def app(self) -> hikari.RESTAware:
+    def app(self) -> hikari.RESTAware:  # noqa: D102 This has an inherited documentation string.
         return self._app
 
     @property
-    def client(self) -> Client:
+    def client(self) -> Client:  # noqa: D102 This has an inherited documentation string.
         return self._client
 
     @property
-    def session(self) -> ControllableSession:
+    def session(self) -> session.Session:  # noqa: D102 This has an inherited documentation string.
         return self._session
 
     @property
@@ -258,6 +263,9 @@ class PlayerUpdateEvent(events.OngakuEvent):
             return False
 
         return self.guild_id == other.guild_id and self.state == other.state
+
+    def __hash__(self) -> int:
+        return hash((self.guild_id, self.state))
 
 
 class StatisticsEvent(events.OngakuEvent):
@@ -284,7 +292,7 @@ class StatisticsEvent(events.OngakuEvent):
         self,
         app: hikari.RESTAware,
         client: Client,
-        session: session.ControllableSession,
+        session: session.Session,
         *,
         players: int,
         playing_players: int,
@@ -306,7 +314,7 @@ class StatisticsEvent(events.OngakuEvent):
     @classmethod
     def from_session(
         cls,
-        session: session.ControllableSession,
+        session: session.Session,
         *,
         players: int,
         playing_players: int,
@@ -329,15 +337,15 @@ class StatisticsEvent(events.OngakuEvent):
         )
 
     @property
-    def app(self) -> hikari.RESTAware:
+    def app(self) -> hikari.RESTAware:  # noqa: D102 This has an inherited documentation string.
         return self._app
 
     @property
-    def client(self) -> Client:
+    def client(self) -> Client:  # noqa: D102 This has an inherited documentation string.
         return self._client
 
     @property
-    def session(self) -> ControllableSession:
+    def session(self) -> session.Session:  # noqa: D102 This has an inherited documentation string.
         return self._session
 
     @property
@@ -370,6 +378,31 @@ class StatisticsEvent(events.OngakuEvent):
         """The frame statistics of the session."""
         return self._frame_statistics
 
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, StatisticsEvent):
+            return False
+
+        return (
+            self.players == other.players
+            and self.playing_players == other.playing_players
+            and self.uptime == other.uptime
+            and self.memory == other.memory
+            and self.cpu == other.cpu
+            and self.frame_statistics == other.frame_statistics
+        )
+
+    def __hash__(self) -> int:
+        return hash(
+            (
+                self.players,
+                self.playing_players,
+                self.uptime,
+                self.memory,
+                self.cpu,
+                self.frame_statistics,
+            ),
+        )
+
 
 class WebsocketClosedEvent(events.OngakuEvent):
     """Websocket Closed Event.
@@ -397,7 +430,7 @@ class WebsocketClosedEvent(events.OngakuEvent):
         self,
         app: hikari.RESTAware,
         client: Client,
-        session: session.ControllableSession,
+        session: session.Session,
         *,
         guild_id: hikari.Snowflake,
         code: int,
@@ -415,7 +448,7 @@ class WebsocketClosedEvent(events.OngakuEvent):
     @classmethod
     def from_session(
         cls,
-        session: session.ControllableSession,
+        session: session.Session,
         *,
         guild_id: hikari.Snowflake,
         code: int,
@@ -434,15 +467,15 @@ class WebsocketClosedEvent(events.OngakuEvent):
         )
 
     @property
-    def app(self) -> hikari.RESTAware:
+    def app(self) -> hikari.RESTAware:  # noqa: D102 This has an inherited documentation string.
         return self._app
 
     @property
-    def client(self) -> Client:
+    def client(self) -> Client:  # noqa: D102 This has an inherited documentation string.
         return self._client
 
     @property
-    def session(self) -> ControllableSession:
+    def session(self) -> session.Session:  # noqa: D102 This has an inherited documentation string.
         return self._session
 
     @property
@@ -476,6 +509,9 @@ class WebsocketClosedEvent(events.OngakuEvent):
             and self.by_remote == other.by_remote
         )
 
+    def __hash__(self) -> int:
+        return hash((self.guild_id, self.code, self.reason, self.by_remote))
+
 
 class SessionConnectedEvent(events.SessionEvent):
     """Session Connected Event.
@@ -489,7 +525,7 @@ class SessionConnectedEvent(events.SessionEvent):
         self,
         app: hikari.RESTAware,
         client: Client,
-        session: session.ControllableSession,
+        session: session.Session,
     ) -> None:
         self._app = app
         self._client = client
@@ -498,21 +534,21 @@ class SessionConnectedEvent(events.SessionEvent):
     @classmethod
     def from_session(
         cls,
-        session: session.ControllableSession,
+        session: session.Session,
     ) -> SessionConnectedEvent:
         """Build the session connected event with just a session."""
         return cls(session.app, session.client, session)
 
     @property
-    def app(self) -> hikari.RESTAware:
+    def app(self) -> hikari.RESTAware:  # noqa: D102 This has an inherited documentation string.
         return self._app
 
     @property
-    def client(self) -> Client:
+    def client(self) -> Client:  # noqa: D102 This has an inherited documentation string.
         return self._client
 
     @property
-    def session(self) -> ControllableSession:
+    def session(self) -> session.Session:  # noqa: D102 This has an inherited documentation string.
         return self._session
 
 
@@ -534,7 +570,7 @@ class SessionDisconnectedEvent(events.SessionEvent):
         self,
         app: hikari.RESTAware,
         client: Client,
-        session: session.ControllableSession,
+        session: session.Session,
         *,
         code: aiohttp.WSCloseCode,
         reason: str | None,
@@ -548,7 +584,7 @@ class SessionDisconnectedEvent(events.SessionEvent):
     @classmethod
     def from_session(
         cls,
-        session: session.ControllableSession,
+        session: session.Session,
         *,
         code: aiohttp.WSCloseCode,
         reason: str | None,
@@ -557,15 +593,15 @@ class SessionDisconnectedEvent(events.SessionEvent):
         return cls(session.app, session.client, session, code=code, reason=reason)
 
     @property
-    def app(self) -> hikari.RESTAware:
+    def app(self) -> hikari.RESTAware:  # noqa: D102 This has an inherited documentation string.
         return self._app
 
     @property
-    def client(self) -> Client:
+    def client(self) -> Client:  # noqa: D102 This has an inherited documentation string.
         return self._client
 
     @property
-    def session(self) -> ControllableSession:
+    def session(self) -> session.Session:  # noqa: D102 This has an inherited documentation string.
         return self._session
 
     @property
@@ -577,6 +613,15 @@ class SessionDisconnectedEvent(events.SessionEvent):
     def reason(self) -> str | None:
         """The reason for the disconnection."""
         return self._reason
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, SessionDisconnectedEvent):
+            return False
+
+        return self.code == other.code and self.reason == other.reason
+
+    def __hash__(self) -> int:
+        return hash((self.code, self.reason))
 
 
 class SessionErrorEvent(events.SessionEvent):
@@ -591,7 +636,7 @@ class SessionErrorEvent(events.SessionEvent):
         self,
         app: hikari.RESTAware,
         client: Client,
-        session: session.ControllableSession,
+        session: session.Session,
     ) -> None:
         self._app = app
         self._client = client
@@ -600,7 +645,7 @@ class SessionErrorEvent(events.SessionEvent):
     @classmethod
     def from_session(
         cls,
-        session: session.ControllableSession,
+        session: session.Session,
     ) -> SessionErrorEvent:
         """Build the session disconnected event with just a session."""
         return cls(session.app, session.client, session)
@@ -614,7 +659,7 @@ class SessionErrorEvent(events.SessionEvent):
         return self._client
 
     @property
-    def session(self) -> ControllableSession:
+    def session(self) -> session.Session:
         return self._session
 
 
@@ -638,7 +683,7 @@ class TrackStartEvent(events.TrackEvent):
         self,
         app: hikari.RESTAware,
         client: Client,
-        session: session.ControllableSession,
+        session: session.Session,
         *,
         guild_id: hikari.Snowflake,
         track: track.Track,
@@ -652,7 +697,7 @@ class TrackStartEvent(events.TrackEvent):
     @classmethod
     def from_session(
         cls,
-        session: session.ControllableSession,
+        session: session.Session,
         *,
         guild_id: hikari.Snowflake,
         track: track.Track,
@@ -661,30 +706,33 @@ class TrackStartEvent(events.TrackEvent):
         return cls(session.app, session.client, session, guild_id=guild_id, track=track)
 
     @property
-    def app(self) -> hikari.RESTAware:
+    def app(self) -> hikari.RESTAware:  # noqa: D102 This has an inherited documentation string.
         return self._app
 
     @property
-    def client(self) -> Client:
+    def client(self) -> Client:  # noqa: D102 This has an inherited documentation string.
         return self._client
 
     @property
-    def session(self) -> ControllableSession:
+    def session(self) -> session.Session:  # noqa: D102 This has an inherited documentation string.
         return self._session
 
     @property
-    def guild_id(self) -> hikari.Snowflake:
+    def guild_id(self) -> hikari.Snowflake:  # noqa: D102 This has an inherited documentation string.
         return self._guild_id
 
     @property
-    def track(self) -> track.Track:
+    def track(self) -> track.Track:  # noqa: D102 This has an inherited documentation string.
         return self._track
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, TrackStartEvent):
             return False
 
-        return self.guild_id == other.guild_id and self.guild_id == other.guild_id
+        return self.guild_id == other.guild_id and self.track == other.track
+
+    def __hash__(self) -> int:
+        return hash((self.guild_id, self.track))
 
 
 class TrackEndEvent(events.TrackEvent):
@@ -708,7 +756,7 @@ class TrackEndEvent(events.TrackEvent):
         self,
         app: hikari.RESTAware,
         client: Client,
-        session: session.ControllableSession,
+        session: session.Session,
         *,
         guild_id: hikari.Snowflake,
         track: track.Track,
@@ -724,7 +772,7 @@ class TrackEndEvent(events.TrackEvent):
     @classmethod
     def from_session(
         cls,
-        session: session.ControllableSession,
+        session: session.Session,
         *,
         guild_id: hikari.Snowflake,
         track: track.Track,
@@ -741,23 +789,23 @@ class TrackEndEvent(events.TrackEvent):
         )
 
     @property
-    def app(self) -> hikari.RESTAware:
+    def app(self) -> hikari.RESTAware:  # noqa: D102 This has an inherited documentation string.
         return self._app
 
     @property
-    def client(self) -> Client:
+    def client(self) -> Client:  # noqa: D102 This has an inherited documentation string.
         return self._client
 
     @property
-    def session(self) -> ControllableSession:
+    def session(self) -> session.Session:  # noqa: D102 This has an inherited documentation string.
         return self._session
 
     @property
-    def guild_id(self) -> hikari.Snowflake:
+    def guild_id(self) -> hikari.Snowflake:  # noqa: D102 This has an inherited documentation string.
         return self._guild_id
 
     @property
-    def track(self) -> track.Track:
+    def track(self) -> track.Track:  # noqa: D102 This has an inherited documentation string.
         return self._track
 
     @property
@@ -774,6 +822,9 @@ class TrackEndEvent(events.TrackEvent):
             and self.track == other.track
             and self.reason == other.reason
         )
+
+    def __hash__(self) -> int:
+        return hash((self.guild_id, self.track, self.reason))
 
 
 class TrackExceptionEvent(events.TrackEvent):
@@ -797,7 +848,7 @@ class TrackExceptionEvent(events.TrackEvent):
         self,
         app: hikari.RESTAware,
         client: Client,
-        session: session.ControllableSession,
+        session: session.Session,
         *,
         guild_id: hikari.Snowflake,
         track: track.Track,
@@ -813,7 +864,7 @@ class TrackExceptionEvent(events.TrackEvent):
     @classmethod
     def from_session(
         cls,
-        session: session.ControllableSession,
+        session: session.Session,
         *,
         guild_id: hikari.Snowflake,
         track: track.Track,
@@ -830,23 +881,23 @@ class TrackExceptionEvent(events.TrackEvent):
         )
 
     @property
-    def app(self) -> hikari.RESTAware:
+    def app(self) -> hikari.RESTAware:  # noqa: D102 This has an inherited documentation string.
         return self._app
 
     @property
-    def client(self) -> Client:
+    def client(self) -> Client:  # noqa: D102 This has an inherited documentation string.
         return self._client
 
     @property
-    def session(self) -> ControllableSession:
+    def session(self) -> session.Session:  # noqa: D102 This has an inherited documentation string.
         return self._session
 
     @property
-    def guild_id(self) -> hikari.Snowflake:
+    def guild_id(self) -> hikari.Snowflake:  # noqa: D102 This has an inherited documentation string.
         return self._guild_id
 
     @property
-    def track(self) -> track.Track:
+    def track(self) -> track.Track:  # noqa: D102 This has an inherited documentation string.
         return self._track
 
     @property
@@ -863,6 +914,9 @@ class TrackExceptionEvent(events.TrackEvent):
             and self.track == other.track
             and self.exception == other.exception
         )
+
+    def __hash__(self) -> int:
+        return hash((self.guild_id, self.track, self.exception))
 
 
 class TrackStuckEvent(events.TrackEvent):
@@ -886,7 +940,7 @@ class TrackStuckEvent(events.TrackEvent):
         self,
         app: hikari.RESTAware,
         client: Client,
-        session: session.ControllableSession,
+        session: session.Session,
         *,
         guild_id: hikari.Snowflake,
         track: track.Track,
@@ -902,7 +956,7 @@ class TrackStuckEvent(events.TrackEvent):
     @classmethod
     def from_session(
         cls,
-        session: session.ControllableSession,
+        session: session.Session,
         *,
         guild_id: hikari.Snowflake,
         track: track.Track,
@@ -919,23 +973,23 @@ class TrackStuckEvent(events.TrackEvent):
         )
 
     @property
-    def app(self) -> hikari.RESTAware:
+    def app(self) -> hikari.RESTAware:  # noqa: D102 This has an inherited documentation string.
         return self._app
 
     @property
-    def client(self) -> Client:
+    def client(self) -> Client:  # noqa: D102 This has an inherited documentation string.
         return self._client
 
     @property
-    def session(self) -> ControllableSession:
+    def session(self) -> session.Session:  # noqa: D102 This has an inherited documentation string.
         return self._session
 
     @property
-    def guild_id(self) -> hikari.Snowflake:
+    def guild_id(self) -> hikari.Snowflake:  # noqa: D102 This has an inherited documentation string.
         return self._guild_id
 
     @property
-    def track(self) -> track.Track:
+    def track(self) -> track.Track:  # noqa: D102 This has an inherited documentation string.
         return self._track
 
     @property
@@ -952,6 +1006,9 @@ class TrackStuckEvent(events.TrackEvent):
             and self.track == other.track
             and self.threshold_ms != other.threshold_ms
         )
+
+    def __hash__(self) -> int:
+        return hash((self.guild_id, self.track, self.threshold_ms))
 
 
 class QueueEmptyEvent(events.QueueEvent):
@@ -972,7 +1029,7 @@ class QueueEmptyEvent(events.QueueEvent):
         self,
         app: hikari.RESTAware,
         client: Client,
-        session: session.ControllableSession,
+        session: session.Session,
         *,
         guild_id: hikari.Snowflake,
         old_track: track.Track,
@@ -986,7 +1043,7 @@ class QueueEmptyEvent(events.QueueEvent):
     @classmethod
     def from_session(
         cls,
-        session: session.ControllableSession,
+        session: session.Session,
         *,
         guild_id: hikari.Snowflake,
         old_track: track.Track,
@@ -1001,23 +1058,23 @@ class QueueEmptyEvent(events.QueueEvent):
         )
 
     @property
-    def app(self) -> hikari.RESTAware:
+    def app(self) -> hikari.RESTAware:  # noqa: D102 This has an inherited documentation string.
         return self._app
 
     @property
-    def client(self) -> Client:
+    def client(self) -> Client:  # noqa: D102 This has an inherited documentation string.
         return self._client
 
     @property
-    def session(self) -> ControllableSession:
+    def session(self) -> session.Session:  # noqa: D102 This has an inherited documentation string.
         return self._session
 
     @property
-    def guild_id(self) -> hikari.Snowflake:
+    def guild_id(self) -> hikari.Snowflake:  # noqa: D102 This has an inherited documentation string.
         return self._guild_id
 
     @property
-    def old_track(self) -> track.Track:
+    def old_track(self) -> track.Track:  # noqa: D102 This has an inherited documentation string.
         return self._old_track
 
     def __eq__(self, other: object) -> bool:
@@ -1025,6 +1082,9 @@ class QueueEmptyEvent(events.QueueEvent):
             return False
 
         return self.guild_id == other.guild_id and self.old_track == other.old_track
+
+    def __hash__(self) -> int:
+        return hash((self.guild_id, self.old_track))
 
 
 class QueueNextEvent(events.QueueEvent):
@@ -1046,7 +1106,7 @@ class QueueNextEvent(events.QueueEvent):
         self,
         app: hikari.RESTAware,
         client: Client,
-        session: session.ControllableSession,
+        session: session.Session,
         *,
         guild_id: hikari.Snowflake,
         track: track.Track,
@@ -1062,7 +1122,7 @@ class QueueNextEvent(events.QueueEvent):
     @classmethod
     def from_session(
         cls,
-        session: session.ControllableSession,
+        session: session.Session,
         *,
         guild_id: hikari.Snowflake,
         track: track.Track,
@@ -1079,23 +1139,23 @@ class QueueNextEvent(events.QueueEvent):
         )
 
     @property
-    def app(self) -> hikari.RESTAware:
+    def app(self) -> hikari.RESTAware:  # noqa: D102 This has an inherited documentation string.
         return self._app
 
     @property
-    def client(self) -> Client:
+    def client(self) -> Client:  # noqa: D102 This has an inherited documentation string.
         return self._client
 
     @property
-    def session(self) -> ControllableSession:
+    def session(self) -> session.Session:  # noqa: D102 This has an inherited documentation string.
         return self._session
 
     @property
-    def guild_id(self) -> hikari.Snowflake:
+    def guild_id(self) -> hikari.Snowflake:  # noqa: D102 This has an inherited documentation string.
         return self._guild_id
 
     @property
-    def old_track(self) -> track.Track:
+    def old_track(self) -> track.Track:  # noqa: D102 This has an inherited documentation string.
         return self._old_track
 
     @property
@@ -1111,4 +1171,13 @@ class QueueNextEvent(events.QueueEvent):
             self.guild_id == other.guild_id
             and self.track == other.track
             and self.old_track == other.old_track
+        )
+
+    def __hash__(self) -> int:
+        return hash(
+            (
+                self.guild_id,
+                self.track,
+                self.old_track,
+            ),
         )

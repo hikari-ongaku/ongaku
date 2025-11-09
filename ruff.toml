@@ -28,17 +28,12 @@ unfixable = []
     "E501",    # Allow lines to be long.
     "FBT003",  # Allow boolean in function call.
     "INP001",  # Allow missing __init__ files.
-]
-"new_tests/**/*.py" = [  # FIXME: Remove me.
-    "ANN201",
-    "D",
-    "INP001",
-    "SLF001",
-    "S101",
-    "PLR2004",
+    "PLR0913", # Allow many function arguments.
+    "FBT001",  # Allow positional boolean function arguments.
+    "TRY",     # Allow non-custom exceptions.
 ]
 "noxfile.py" = ["D"]
-"examples/**/*.py" = ["D", "LOG015", "B008", "INP001"]
+"examples/**/*.py" = ["D", "LOG015", "BLE001", "B008", "INP001", "E501", "S106", "PLR2004"]
 
 [lint.flake8-copyright]
 author = "mplaty"

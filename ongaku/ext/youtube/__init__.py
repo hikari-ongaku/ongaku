@@ -28,7 +28,6 @@ from __future__ import annotations
 
 from ongaku.ext.youtube.endpoints import fetch_youtube
 from ongaku.ext.youtube.endpoints import fetch_youtube_oauth
-from ongaku.ext.youtube.endpoints import fetch_youtube_stream
 from ongaku.ext.youtube.endpoints import update_youtube
 from ongaku.ext.youtube.youtube import RefreshTokenInformation
 from ongaku.ext.youtube.youtube import YouTube
@@ -38,6 +37,5 @@ __all__ = (
     "YouTube",
     "fetch_youtube",
     "fetch_youtube_oauth",
-    "fetch_youtube_stream",
     "update_youtube",
 )

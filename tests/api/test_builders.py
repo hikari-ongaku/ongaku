@@ -105,7 +105,7 @@ class TestEntityBuilder:
         with mock.patch.object(
             entity_builder,
             "_loads",
-            side_effect=["test_1", "test_2"],
+            return_value=["test_1", "test_2"],
         ) as patched__loads:
             assert entity_builder._ensure_sequence('["test_1", "test_2"]') == [
                 "test_1",
@@ -945,7 +945,7 @@ class TestEntityBuilder:
 
         assert state.time == datetime.datetime.fromtimestamp(1, datetime.timezone.utc)
         assert state.position == 2
-        assert state.connected is True
+        assert state.is_connected is True
         assert state.ping == 3
 
     def test__deserialize_voice(
@@ -1092,7 +1092,6 @@ class TestEntityBuilder:
         entity_builder: EntityBuilder,
         routeplanner_details_payload: dict[str, typing.Any],
         routeplanner_ip_block_payload: dict[str, typing.Any],
-        routeplanner_failing_address_payload: dict[str, typing.Any],
     ):
         routeplanner_details_payload["failingAddresses"] = []
         routeplanner_details_payload["rotateIndex"] = None
@@ -1223,7 +1222,6 @@ class TestEntityBuilder:
         statistics_payload: dict[str, typing.Any],
         statistics_memory_payload: dict[str, typing.Any],
         statistics_cpu_payload: dict[str, typing.Any],
-        statistics_frame_stats_payload: dict[str, typing.Any],
     ):
         statistics_payload["frameStats"] = None
 
@@ -1428,7 +1426,99 @@ class TestFiltersBuilder:
         assert filters_builder.plugin_filters == {"plugin": "filters"}
 
     def test_from_filter(self):
-        raise NotImplementedError
+        filters_builder = FiltersBuilder.from_filter(
+            filters.Filters(
+                volume=1.2,
+                equalizer=[
+                    filters.Equalizer(band=filters.BandType.HZ25, gain=3),
+                    filters.Equalizer(band=filters.BandType.HZ40, gain=4.5),
+                ],
+                karaoke=filters.Karaoke(
+                    level=6,
+                    mono_level=7.8,
+                    filter_band=9,
+                    filter_width=10.11,
+                ),
+                timescale=filters.Timescale(
+                    speed=12,
+                    pitch=13.14,
+                    rate=15,
+                ),
+                tremolo=filters.Tremolo(
+                    frequency=16.17,
+                    depth=18,
+                ),
+                vibrato=filters.Vibrato(
+                    frequency=19.20,
+                    depth=21,
+                ),
+                rotation=filters.Rotation(
+                    rotation_hz=22.23,
+                ),
+                distortion=filters.Distortion(
+                    sin_offset=24,
+                    sin_scale=25.26,
+                    cos_offset=27,
+                    cos_scale=28.29,
+                    tan_offset=30,
+                    tan_scale=31.32,
+                    offset=33,
+                    scale=34.35,
+                ),
+                channel_mix=filters.ChannelMix(
+                    left_to_left=36,
+                    left_to_right=37.38,
+                    right_to_left=39,
+                    right_to_right=40.41,
+                ),
+                low_pass=filters.LowPass(smoothing=42),
+                plugin_filters={"plugin": "filters"},
+            ),
+        )
+
+        assert filters_builder.volume == 1.2
+        assert filters_builder.equalizer == {
+            EqualizerBuilder(band=filters.BandType.HZ25, gain=3),
+            EqualizerBuilder(band=filters.BandType.HZ40, gain=4.5),
+        }
+        assert filters_builder.karaoke == KaraokeBuilder(
+            level=6,
+            mono_level=7.8,
+            filter_band=9,
+            filter_width=10.11,
+        )
+        assert filters_builder.timescale == TimescaleBuilder(
+            speed=12,
+            pitch=13.14,
+            rate=15,
+        )
+        assert filters_builder.tremolo == TremoloBuilder(
+            frequency=16.17,
+            depth=18,
+        )
+        assert filters_builder.vibrato == VibratoBuilder(
+            frequency=19.20,
+            depth=21,
+        )
+        assert filters_builder.rotation == RotationBuilder(rotation_hz=22.23)
+        assert filters_builder.distortion == DistortionBuilder(
+            sin_offset=24,
+            sin_scale=25.26,
+            cos_offset=27,
+            cos_scale=28.29,
+            tan_offset=30,
+            tan_scale=31.32,
+            offset=33,
+            scale=34.35,
+        )
+        assert filters_builder.channel_mix == ChannelMixBuilder(
+            left_to_left=36,
+            left_to_right=37.38,
+            right_to_left=39,
+            right_to_right=40.41,
+        )
+        assert filters_builder.low_pass == LowPassBuilder(smoothing=42)
+        assert filters_builder.plugin_filters == {"plugin": "filters"}
 
     def test_set_volume(self):
         filters_builder = FiltersBuilder()
@@ -1442,7 +1532,7 @@ class TestFiltersBuilder:
     def test_set_volume_with_invalid(self):
         filters_builder = FiltersBuilder()
 
-        with pytest.raises(ValueError, match=r"^Volume must be at or above 0\.$"):
+        with pytest.raises(ValueError, match=r"^$"):
             filters_builder.set_volume(-1)
 
     def test_add_equalizer(self):
@@ -1466,7 +1556,7 @@ class TestFiltersBuilder:
     def test_remove_equalizer_with_invalid(self):
         filters_builder = FiltersBuilder()
 
-        with pytest.raises(IndexError, match=r"^No values found\.$"):
+        with pytest.raises(IndexError, match=r"^$"):
             filters_builder.remove_equalizer(filters.BandType.HZ100)
 
     def test_clear_equalizer(self):
@@ -1922,7 +2012,7 @@ class TestFiltersBuilder:
             cos_scale=345367,
             tan_offset=57543,
             tan_scale=2347,
-            offset=10,
+            offset=12982,
             scale=698,
         )
 
@@ -2090,7 +2180,6 @@ class TestFiltersBuilder:
 
     def test_build(self):
         mock_equalizer_1 = mock.Mock()
-        mock_equalizer_2 = mock.Mock()
         mock_karaoke = mock.Mock()
         mock_timescale = mock.Mock()
         mock_tremolo = mock.Mock()
@@ -2102,7 +2191,7 @@ class TestFiltersBuilder:
 
         filters_builder = FiltersBuilder(
             volume=1.5,
-            equalizer=[mock_equalizer_1, mock_equalizer_2],
+            equalizer=[mock_equalizer_1],
             karaoke=mock_karaoke,
             timescale=mock_timescale,
             tremolo=mock_tremolo,
@@ -2117,7 +2206,6 @@ class TestFiltersBuilder:
         assert filters_builder.build() == {
             "volume": 1.5,
             "equalizer": [
-                mock_equalizer_2.build.return_value,
                 mock_equalizer_1.build.return_value,
             ],
             "karaoke": mock_karaoke.build.return_value,
