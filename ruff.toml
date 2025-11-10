@@ -33,7 +33,7 @@ unfixable = []
     "TRY",     # Allow non-custom exceptions.
 ]
 "noxfile.py" = ["D"]
-"examples/**/*.py" = ["D", "LOG015", "BLE001", "B008", "INP001", "E501", "S106", "PLR2004"]
+"examples/**/*.py" = ["D", "LOG015", "BLE001", "B008", "INP001", "E501", "S106", "PLR2004", "T201", "TC002"]
 
 [lint.flake8-copyright]
 author = "mplaty"
