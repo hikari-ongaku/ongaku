@@ -1,457 +1,566 @@
-# ruff: noqa: D100, D101, D102, D103
 from __future__ import annotations
 
-import datetime
-from typing import TYPE_CHECKING
+from unittest import mock
 
+import aiohttp
 import hikari
 
-from ongaku import events
-from ongaku.abc.errors import SeverityType
-from ongaku.abc.events import TrackEndReasonType
-from ongaku.impl import player
-
-if TYPE_CHECKING:
-    from hikari.impl import gateway_bot as gateway_bot_
-
-    from ongaku.client import Client
-    from ongaku.impl.track import Track
-    from ongaku.session import Session
+from ongaku import track as track_
+from ongaku.events import PayloadEvent
+from ongaku.events import PlayerUpdateEvent
+from ongaku.events import QueueEmptyEvent
+from ongaku.events import QueueNextEvent
+from ongaku.events import ReadyEvent
+from ongaku.events import SessionConnectedEvent
+from ongaku.events import SessionDisconnectedEvent
+from ongaku.events import SessionErrorEvent
+from ongaku.events import StatisticsEvent
+from ongaku.events import TrackEndEvent
+from ongaku.events import TrackExceptionEvent
+from ongaku.events import TrackStartEvent
+from ongaku.events import TrackStuckEvent
+from ongaku.events import WebsocketClosedEvent
 
 
 class TestPayloadEvent:
-    def test_event(
-        self,
-        gateway_bot: gateway_bot_.GatewayBot,
-        ongaku_client: Client,
-        ongaku_session: Session,
-    ):
-        event = events.PayloadEvent(
-            gateway_bot,
-            ongaku_client,
-            ongaku_session,
-            "payload",
+    def test_properties(self):
+        mock_app = mock.Mock()
+        mock_client = mock.Mock()
+        mock_session = mock.Mock()
+
+        event = PayloadEvent(
+            mock_app,
+            mock_client,
+            mock_session,
+            payload="payload",
         )
 
-        assert event.app == gateway_bot
-        assert event.client == ongaku_client
-        assert event.session == ongaku_session
+        assert event.app == mock_app
+        assert event.client == mock_client
+        assert event.session == mock_session
         assert event.payload == "payload"
 
-    def test_from_session(
-        self,
-        gateway_bot: gateway_bot_.GatewayBot,
-        ongaku_client: Client,
-        ongaku_session: Session,
-    ):
-        event = events.PayloadEvent.from_session(ongaku_session, "payload")
+    def test_from_session(self):
+        mock_session = mock.Mock()
 
-        assert event.app == gateway_bot
-        assert event.client == ongaku_client
-        assert event.session == ongaku_session
+        event = PayloadEvent.from_session(
+            mock_session,
+            payload="payload",
+        )
+
+        assert event.app == mock_session.app
+        assert event.client == mock_session.client
+        assert event.session == mock_session
         assert event.payload == "payload"
 
 
 class TestReadyEvent:
-    def test_event(
-        self,
-        gateway_bot: gateway_bot_.GatewayBot,
-        ongaku_client: Client,
-        ongaku_session: Session,
-    ):
-        event = events.ReadyEvent(
-            gateway_bot,
-            ongaku_client,
-            ongaku_session,
-            False,
-            "session_id",
+    def test_properties(self):
+        mock_app = mock.Mock()
+        mock_client = mock.Mock()
+        mock_session = mock.Mock()
+
+        event = ReadyEvent(
+            mock_app,
+            mock_client,
+            mock_session,
+            resumed=False,
+            session_id="session_id",
         )
 
-        assert event.app == gateway_bot
-        assert event.client == ongaku_client
-        assert event.session == ongaku_session
+        assert event.app == mock_app
+        assert event.client == mock_client
+        assert event.session == mock_session
         assert event.resumed is False
         assert event.session_id == "session_id"
 
-    def test_from_session(
-        self,
-        gateway_bot: gateway_bot_.GatewayBot,
-        ongaku_client: Client,
-        ongaku_session: Session,
-    ):
-        event = events.ReadyEvent.from_session(ongaku_session, False, "session_id")
+    def test_from_session(self):
+        mock_session = mock.Mock()
 
-        assert event.app == gateway_bot
-        assert event.client == ongaku_client
-        assert event.session == ongaku_session
+        event = ReadyEvent.from_session(
+            mock_session,
+            resumed=False,
+            session_id="session_id",
+        )
+
+        assert event.app == mock_session.app
+        assert event.client == mock_session.client
+        assert event.session == mock_session
         assert event.resumed is False
         assert event.session_id == "session_id"
 
 
 class TestPlayerUpdateEvent:
-    def test_event(
-        self,
-        gateway_bot: gateway_bot_.GatewayBot,
-        ongaku_client: Client,
-        ongaku_session: Session,
-    ):
-        state = player.State(datetime.datetime.now(), 2, False, 3)
-        event = events.PlayerUpdateEvent(
-            gateway_bot,
-            ongaku_client,
-            ongaku_session,
-            hikari.Snowflake(1234567890),
-            state,
+    def test_properties(self):
+        mock_app = mock.Mock()
+        mock_client = mock.Mock()
+        mock_session = mock.Mock()
+        mock_state = mock.Mock()
+
+        event = PlayerUpdateEvent(
+            mock_app,
+            mock_client,
+            mock_session,
+            guild_id=hikari.Snowflake(123),
+            state=mock_state,
         )
 
-        assert event.app == gateway_bot
-        assert event.client == ongaku_client
-        assert event.session == ongaku_session
-        assert event.guild_id == hikari.Snowflake(1234567890)
-        assert event.state == state
+        assert event.app == mock_app
+        assert event.client == mock_client
+        assert event.session == mock_session
+        assert event.guild_id == hikari.Snowflake(123)
+        assert event.state == mock_state
 
-    def test_from_session(
-        self,
-        gateway_bot: gateway_bot_.GatewayBot,
-        ongaku_client: Client,
-        ongaku_session: Session,
-    ):
-        state = player.State(datetime.datetime.now(), 2, False, 3)
-        event = events.PlayerUpdateEvent.from_session(
-            ongaku_session,
-            hikari.Snowflake(1234567890),
-            state,
+    def test_from_session(self):
+        mock_session = mock.Mock()
+        mock_state = mock.Mock()
+
+        event = PlayerUpdateEvent.from_session(
+            mock_session,
+            guild_id=hikari.Snowflake(123),
+            state=mock_state,
         )
 
-        assert event.app == gateway_bot
-        assert event.client == ongaku_client
-        assert event.session == ongaku_session
-        assert event.guild_id == hikari.Snowflake(1234567890)
-        assert event.state == state
+        assert event.app == mock_session.app
+        assert event.client == mock_session.client
+        assert event.session == mock_session
+        assert event.guild_id == hikari.Snowflake(123)
+        assert event.state == mock_state
+
+
+class TestStatisticsEvent:
+    def test_properties(self):
+        mock_app = mock.Mock()
+        mock_client = mock.Mock()
+        mock_session = mock.Mock()
+        mock_memory = mock.Mock()
+        mock_cpu = mock.Mock()
+        mock_frame_statistics = mock.Mock()
+
+        event = StatisticsEvent(
+            mock_app,
+            mock_client,
+            mock_session,
+            players=1,
+            playing_players=2,
+            uptime=3,
+            memory=mock_memory,
+            cpu=mock_cpu,
+            frame_statistics=mock_frame_statistics,
+        )
+
+        assert event.app == mock_app
+        assert event.client == mock_client
+        assert event.session == mock_session
+        assert event.players == 1
+        assert event.playing_players == 2
+        assert event.uptime == 3
+        assert event.memory == mock_memory
+        assert event.cpu == mock_cpu
+        assert event.frame_statistics == mock_frame_statistics
+
+    def test_from_session(self):
+        mock_session = mock.Mock()
+        mock_memory = mock.Mock()
+        mock_cpu = mock.Mock()
+        mock_frame_statistics = mock.Mock()
+
+        event = StatisticsEvent.from_session(
+            mock_session,
+            players=1,
+            playing_players=2,
+            uptime=3,
+            memory=mock_memory,
+            cpu=mock_cpu,
+            frame_statistics=mock_frame_statistics,
+        )
+
+        assert event.app == mock_session.app
+        assert event.client == mock_session.client
+        assert event.session == mock_session
+        assert event.players == 1
+        assert event.playing_players == 2
+        assert event.uptime == 3
+        assert event.memory == mock_memory
+        assert event.cpu == mock_cpu
+        assert event.frame_statistics == mock_frame_statistics
 
 
 class TestWebsocketClosedEvent:
-    def test_event(
-        self,
-        gateway_bot: gateway_bot_.GatewayBot,
-        ongaku_client: Client,
-        ongaku_session: Session,
-    ):
-        event = events.WebsocketClosedEvent(
-            gateway_bot,
-            ongaku_client,
-            ongaku_session,
-            hikari.Snowflake(1234567890),
-            1,
-            "reason",
-            False,
+    def test_properties(self):
+        mock_app = mock.Mock()
+        mock_client = mock.Mock()
+        mock_session = mock.Mock()
+
+        event = WebsocketClosedEvent(
+            mock_app,
+            mock_client,
+            mock_session,
+            guild_id=hikari.Snowflake(123),
+            code=1,
+            reason="reason",
+            by_remote=True,
         )
 
-        assert event.app == gateway_bot
-        assert event.client == ongaku_client
-        assert event.session == ongaku_session
-        assert event.guild_id == hikari.Snowflake(1234567890)
+        assert event.app == mock_app
+        assert event.client == mock_client
+        assert event.session == mock_session
+        assert event.guild_id == hikari.Snowflake(123)
         assert event.code == 1
         assert event.reason == "reason"
-        assert event.by_remote is False
+        assert event.by_remote is True
 
-    def test_from_session(
-        self,
-        gateway_bot: gateway_bot_.GatewayBot,
-        ongaku_client: Client,
-        ongaku_session: Session,
-    ):
-        event = events.WebsocketClosedEvent.from_session(
-            ongaku_session,
-            hikari.Snowflake(1234567890),
-            1,
-            "reason",
-            False,
+    def test_from_session(self):
+        mock_session = mock.Mock()
+
+        event = WebsocketClosedEvent.from_session(
+            mock_session,
+            guild_id=hikari.Snowflake(123),
+            code=1,
+            reason="reason",
+            by_remote=True,
         )
 
-        assert event.app == gateway_bot
-        assert event.client == ongaku_client
-        assert event.session == ongaku_session
-        assert event.guild_id == hikari.Snowflake(1234567890)
+        assert event.app == mock_session.app
+        assert event.client == mock_session.client
+        assert event.session == mock_session
+        assert event.guild_id == hikari.Snowflake(123)
         assert event.code == 1
         assert event.reason == "reason"
-        assert event.by_remote is False
+        assert event.by_remote is True
+
+
+class TestSessionConnectedEvent:
+    def test_properties(self):
+        mock_app = mock.Mock()
+        mock_client = mock.Mock()
+        mock_session = mock.Mock()
+
+        event = SessionConnectedEvent(
+            mock_app,
+            mock_client,
+            mock_session,
+        )
+
+        assert event.app == mock_app
+        assert event.client == mock_client
+        assert event.session == mock_session
+
+    def test_from_session(self):
+        mock_session = mock.Mock()
+
+        event = SessionConnectedEvent.from_session(mock_session)
+
+        assert event.app == mock_session.app
+        assert event.client == mock_session.client
+        assert event.session == mock_session
+
+
+class TestSessionDisconnectedEvent:
+    def test_properties(self):
+        mock_app = mock.Mock()
+        mock_client = mock.Mock()
+        mock_session = mock.Mock()
+
+        event = SessionDisconnectedEvent(
+            mock_app,
+            mock_client,
+            mock_session,
+            code=aiohttp.WSCloseCode.GOING_AWAY,
+            reason="reason",
+        )
+
+        assert event.app == mock_app
+        assert event.client == mock_client
+        assert event.session == mock_session
+        assert event.code == aiohttp.WSCloseCode.GOING_AWAY
+        assert event.reason == "reason"
+
+    def test_from_session(self):
+        mock_session = mock.Mock()
+
+        event = SessionDisconnectedEvent.from_session(
+            mock_session,
+            code=aiohttp.WSCloseCode.GOING_AWAY,
+            reason="reason",
+        )
+
+        assert event.app == mock_session.app
+        assert event.client == mock_session.client
+        assert event.session == mock_session
+        assert event.code == aiohttp.WSCloseCode.GOING_AWAY
+        assert event.reason == "reason"
+
+
+class TestSessionErrorEvent:
+    def test_properties(self):
+        mock_app = mock.Mock()
+        mock_client = mock.Mock()
+        mock_session = mock.Mock()
+
+        event = SessionErrorEvent(
+            mock_app,
+            mock_client,
+            mock_session,
+        )
+
+        assert event.app == mock_app
+        assert event.client == mock_client
+        assert event.session == mock_session
+
+    def test_from_session(self):
+        mock_session = mock.Mock()
+
+        event = SessionErrorEvent.from_session(mock_session)
+
+        assert event.app == mock_session.app
+        assert event.client == mock_session.client
+        assert event.session == mock_session
 
 
 class TestTrackStartEvent:
-    def test_event(
-        self,
-        gateway_bot: gateway_bot_.GatewayBot,
-        ongaku_client: Client,
-        ongaku_session: Session,
-        ongaku_track: Track,
-    ):
-        event = events.TrackStartEvent(
-            gateway_bot,
-            ongaku_client,
-            ongaku_session,
-            hikari.Snowflake(1234567890),
-            ongaku_track,
+    def test_properties(self):
+        mock_app = mock.Mock()
+        mock_client = mock.Mock()
+        mock_session = mock.Mock()
+        mock_track = mock.Mock()
+
+        event = TrackStartEvent(
+            mock_app,
+            mock_client,
+            mock_session,
+            guild_id=hikari.Snowflake(123),
+            track=mock_track,
         )
 
-        assert event.app == gateway_bot
-        assert event.client == ongaku_client
-        assert event.session == ongaku_session
-        assert event.guild_id == hikari.Snowflake(1234567890)
-        assert event.track == ongaku_track
+        assert event.app == mock_app
+        assert event.client == mock_client
+        assert event.session == mock_session
+        assert event.guild_id == hikari.Snowflake(123)
+        assert event.track == mock_track
 
-    def test_from_session(
-        self,
-        gateway_bot: gateway_bot_.GatewayBot,
-        ongaku_client: Client,
-        ongaku_session: Session,
-        ongaku_track: Track,
-    ):
-        event = events.TrackStartEvent.from_session(
-            ongaku_session,
-            hikari.Snowflake(1234567890),
-            ongaku_track,
+    def test_from_session(self):
+        mock_session = mock.Mock()
+        mock_track = mock.Mock()
+
+        event = TrackStartEvent.from_session(
+            mock_session,
+            guild_id=hikari.Snowflake(123),
+            track=mock_track,
         )
 
-        assert event.app == gateway_bot
-        assert event.client == ongaku_client
-        assert event.session == ongaku_session
-        assert event.guild_id == hikari.Snowflake(1234567890)
-        assert event.track == ongaku_track
+        assert event.app == mock_session.app
+        assert event.client == mock_session.client
+        assert event.session == mock_session
+        assert event.guild_id == hikari.Snowflake(123)
+        assert event.track == mock_track
 
 
 class TestTrackEndEvent:
-    def test_event(
-        self,
-        gateway_bot: gateway_bot_.GatewayBot,
-        ongaku_client: Client,
-        ongaku_session: Session,
-        ongaku_track: Track,
-    ):
-        event = events.TrackEndEvent(
-            gateway_bot,
-            ongaku_client,
-            ongaku_session,
-            hikari.Snowflake(1234567890),
-            ongaku_track,
-            TrackEndReasonType.FINISHED,
+    def test_properties(self):
+        mock_app = mock.Mock()
+        mock_client = mock.Mock()
+        mock_session = mock.Mock()
+        mock_track = mock.Mock()
+
+        event = TrackEndEvent(
+            mock_app,
+            mock_client,
+            mock_session,
+            guild_id=hikari.Snowflake(123),
+            track=mock_track,
+            reason=track_.TrackEndReasonType.FINISHED,
         )
 
-        assert event.app == gateway_bot
-        assert event.client == ongaku_client
-        assert event.session == ongaku_session
-        assert event.guild_id == hikari.Snowflake(1234567890)
-        assert event.track == ongaku_track
-        assert event.reason == TrackEndReasonType.FINISHED
+        assert event.app == mock_app
+        assert event.client == mock_client
+        assert event.session == mock_session
+        assert event.guild_id == hikari.Snowflake(123)
+        assert event.track == mock_track
+        assert event.reason == track_.TrackEndReasonType.FINISHED
 
-    def test_from_session(
-        self,
-        gateway_bot: gateway_bot_.GatewayBot,
-        ongaku_client: Client,
-        ongaku_session: Session,
-        ongaku_track: Track,
-    ):
-        event = events.TrackEndEvent.from_session(
-            ongaku_session,
-            hikari.Snowflake(1234567890),
-            ongaku_track,
-            TrackEndReasonType.FINISHED,
+    def test_from_session(self):
+        mock_session = mock.Mock()
+        mock_track = mock.Mock()
+
+        event = TrackEndEvent.from_session(
+            mock_session,
+            guild_id=hikari.Snowflake(123),
+            track=mock_track,
+            reason=track_.TrackEndReasonType.FINISHED,
         )
 
-        assert event.app == gateway_bot
-        assert event.client == ongaku_client
-        assert event.session == ongaku_session
-        assert event.guild_id == hikari.Snowflake(1234567890)
-        assert event.track == ongaku_track
-        assert event.reason == TrackEndReasonType.FINISHED
-
-
-class TestTrackException:
-    def test_event(self):
-        exception = events.TrackException("message", SeverityType.COMMON, "cause")
-
-        assert exception.message == "message"
-        assert exception.severity == SeverityType.COMMON
-        assert exception.cause == "cause"
+        assert event.app == mock_session.app
+        assert event.client == mock_session.client
+        assert event.session == mock_session
+        assert event.guild_id == hikari.Snowflake(123)
+        assert event.track == mock_track
+        assert event.reason == track_.TrackEndReasonType.FINISHED
 
 
 class TestTrackExceptionEvent:
-    def test_event(
-        self,
-        gateway_bot: gateway_bot_.GatewayBot,
-        ongaku_client: Client,
-        ongaku_session: Session,
-        ongaku_track: Track,
-    ):
-        exception = events.TrackException("message", SeverityType.COMMON, "cause")
-        event = events.TrackExceptionEvent(
-            gateway_bot,
-            ongaku_client,
-            ongaku_session,
-            hikari.Snowflake(1234567890),
-            ongaku_track,
-            exception,
+    def test_properties(self):
+        mock_app = mock.Mock()
+        mock_client = mock.Mock()
+        mock_session = mock.Mock()
+        mock_track = mock.Mock()
+        mock_exception = mock.Mock()
+
+        event = TrackExceptionEvent(
+            mock_app,
+            mock_client,
+            mock_session,
+            guild_id=hikari.Snowflake(123),
+            track=mock_track,
+            exception=mock_exception,
         )
 
-        assert event.app == gateway_bot
-        assert event.client == ongaku_client
-        assert event.session == ongaku_session
-        assert event.guild_id == hikari.Snowflake(1234567890)
-        assert event.track == ongaku_track
-        assert event.exception == exception
+        assert event.app == mock_app
+        assert event.client == mock_client
+        assert event.session == mock_session
+        assert event.guild_id == hikari.Snowflake(123)
+        assert event.track == mock_track
+        assert event.exception == mock_exception
 
-    def test_from_session(
-        self,
-        gateway_bot: gateway_bot_.GatewayBot,
-        ongaku_client: Client,
-        ongaku_session: Session,
-        ongaku_track: Track,
-    ):
-        exception = events.TrackException("message", SeverityType.COMMON, "cause")
-        event = events.TrackExceptionEvent.from_session(
-            ongaku_session,
-            hikari.Snowflake(1234567890),
-            ongaku_track,
-            exception,
+    def test_from_session(self):
+        mock_session = mock.Mock()
+        mock_track = mock.Mock()
+        mock_exception = mock.Mock()
+
+        event = TrackExceptionEvent.from_session(
+            mock_session,
+            guild_id=hikari.Snowflake(123),
+            track=mock_track,
+            exception=mock_exception,
         )
 
-        assert event.app == gateway_bot
-        assert event.client == ongaku_client
-        assert event.session == ongaku_session
-        assert event.guild_id == hikari.Snowflake(1234567890)
-        assert event.track == ongaku_track
-        assert event.exception == exception
+        assert event.app == mock_session.app
+        assert event.client == mock_session.client
+        assert event.session == mock_session
+        assert event.guild_id == hikari.Snowflake(123)
+        assert event.track == mock_track
+        assert event.exception == mock_exception
 
 
 class TestTrackStuckEvent:
-    def test_event(
-        self,
-        gateway_bot: gateway_bot_.GatewayBot,
-        ongaku_client: Client,
-        ongaku_session: Session,
-        ongaku_track: Track,
-    ):
-        event = events.TrackStuckEvent(
-            gateway_bot,
-            ongaku_client,
-            ongaku_session,
-            hikari.Snowflake(1234567890),
-            ongaku_track,
-            1,
+    def test_properties(self):
+        mock_app = mock.Mock()
+        mock_client = mock.Mock()
+        mock_session = mock.Mock()
+        mock_track = mock.Mock()
+
+        event = TrackStuckEvent(
+            mock_app,
+            mock_client,
+            mock_session,
+            guild_id=hikari.Snowflake(123),
+            track=mock_track,
+            threshold_ms=1,
         )
 
-        assert event.app == gateway_bot
-        assert event.client == ongaku_client
-        assert event.session == ongaku_session
-        assert event.guild_id == hikari.Snowflake(1234567890)
-        assert event.track == ongaku_track
+        assert event.app == mock_app
+        assert event.client == mock_client
+        assert event.session == mock_session
+        assert event.guild_id == hikari.Snowflake(123)
+        assert event.track == mock_track
         assert event.threshold_ms == 1
 
-    def test_from_session(
-        self,
-        gateway_bot: gateway_bot_.GatewayBot,
-        ongaku_client: Client,
-        ongaku_session: Session,
-        ongaku_track: Track,
-    ):
-        event = events.TrackStuckEvent.from_session(
-            ongaku_session,
-            hikari.Snowflake(1234567890),
-            ongaku_track,
-            1,
+    def test_from_session(self):
+        mock_session = mock.Mock()
+        mock_track = mock.Mock()
+
+        event = TrackStuckEvent.from_session(
+            mock_session,
+            guild_id=hikari.Snowflake(123),
+            track=mock_track,
+            threshold_ms=1,
         )
 
-        assert event.app == gateway_bot
-        assert event.client == ongaku_client
-        assert event.session == ongaku_session
-        assert event.guild_id == hikari.Snowflake(1234567890)
-        assert event.track == ongaku_track
+        assert event.app == mock_session.app
+        assert event.client == mock_session.client
+        assert event.session == mock_session
+        assert event.guild_id == hikari.Snowflake(123)
+        assert event.track == mock_track
         assert event.threshold_ms == 1
 
 
 class TestQueueEmptyEvent:
-    def test_event(
-        self,
-        gateway_bot: gateway_bot_.GatewayBot,
-        ongaku_client: Client,
-        ongaku_session: Session,
-        ongaku_track: Track,
-    ):
-        event = events.QueueEmptyEvent(
-            gateway_bot,
-            ongaku_client,
-            ongaku_session,
-            hikari.Snowflake(1234567890),
-            ongaku_track,
+    def test_properties(self):
+        mock_app = mock.Mock()
+        mock_client = mock.Mock()
+        mock_session = mock.Mock()
+        mock_old_track = mock.Mock()
+
+        event = QueueEmptyEvent(
+            mock_app,
+            mock_client,
+            mock_session,
+            guild_id=hikari.Snowflake(123),
+            old_track=mock_old_track,
         )
 
-        assert event.app == gateway_bot
-        assert event.client == ongaku_client
-        assert event.session == ongaku_session
-        assert event.guild_id == hikari.Snowflake(1234567890)
-        assert event.old_track == ongaku_track
+        assert event.app == mock_app
+        assert event.client == mock_client
+        assert event.session == mock_session
+        assert event.guild_id == hikari.Snowflake(123)
+        assert event.old_track == mock_old_track
 
-    def test_from_session(
-        self,
-        gateway_bot: gateway_bot_.GatewayBot,
-        ongaku_client: Client,
-        ongaku_session: Session,
-        ongaku_track: Track,
-    ):
-        event = events.QueueEmptyEvent.from_session(
-            ongaku_session,
-            hikari.Snowflake(1234567890),
-            ongaku_track,
+    def test_from_session(self):
+        mock_session = mock.Mock()
+        mock_old_track = mock.Mock()
+
+        event = QueueEmptyEvent.from_session(
+            mock_session,
+            guild_id=hikari.Snowflake(123),
+            old_track=mock_old_track,
         )
 
-        assert event.app == gateway_bot
-        assert event.client == ongaku_client
-        assert event.session == ongaku_session
-        assert event.guild_id == hikari.Snowflake(1234567890)
-        assert event.old_track == ongaku_track
+        assert event.app == mock_session.app
+        assert event.client == mock_session.client
+        assert event.session == mock_session
+        assert event.guild_id == hikari.Snowflake(123)
+        assert event.old_track == mock_old_track
 
 
 class TestQueueNextEvent:
-    def test_event(
-        self,
-        gateway_bot: gateway_bot_.GatewayBot,
-        ongaku_client: Client,
-        ongaku_session: Session,
-        ongaku_track: Track,
-    ):
-        event = events.QueueNextEvent(
-            gateway_bot,
-            ongaku_client,
-            ongaku_session,
-            hikari.Snowflake(1234567890),
-            ongaku_track,
-            ongaku_track,
+    def test_properties(self):
+        mock_app = mock.Mock()
+        mock_client = mock.Mock()
+        mock_session = mock.Mock()
+        mock_track = mock.Mock()
+        mock_old_track = mock.Mock()
+
+        event = QueueNextEvent(
+            mock_app,
+            mock_client,
+            mock_session,
+            guild_id=hikari.Snowflake(123),
+            track=mock_track,
+            old_track=mock_old_track,
         )
 
-        assert event.app == gateway_bot
-        assert event.client == ongaku_client
-        assert event.session == ongaku_session
-        assert event.guild_id == hikari.Snowflake(1234567890)
-        assert event.old_track == ongaku_track
-        assert event.track == ongaku_track
+        assert event.app == mock_app
+        assert event.client == mock_client
+        assert event.session == mock_session
+        assert event.guild_id == hikari.Snowflake(123)
+        assert event.track == mock_track
+        assert event.old_track == mock_old_track
 
-    def test_from_session(
-        self,
-        gateway_bot: gateway_bot_.GatewayBot,
-        ongaku_client: Client,
-        ongaku_session: Session,
-        ongaku_track: Track,
-    ):
-        event = events.QueueNextEvent.from_session(
-            ongaku_session,
-            hikari.Snowflake(1234567890),
-            ongaku_track,
-            ongaku_track,
+    def test_from_session(self):
+        mock_session = mock.Mock()
+        mock_track = mock.Mock()
+        mock_old_track = mock.Mock()
+
+        event = QueueNextEvent.from_session(
+            mock_session,
+            guild_id=hikari.Snowflake(123),
+            track=mock_track,
+            old_track=mock_old_track,
         )
 
-        assert event.app == gateway_bot
-        assert event.client == ongaku_client
-        assert event.session == ongaku_session
-        assert event.guild_id == hikari.Snowflake(1234567890)
-        assert event.old_track == ongaku_track
-        assert event.track == ongaku_track
+        assert event.app == mock_session.app
+        assert event.client == mock_session.client
+        assert event.session == mock_session
+        assert event.guild_id == hikari.Snowflake(123)
+        assert event.track == mock_track
+        assert event.old_track == mock_old_track

@@ -1,6 +1,6 @@
 ---
 title: Getting Started
-description: Home for getting started
+description: Getting started using Ongaku
 ---
 
 # Getting started
@@ -41,7 +41,7 @@ pip install hikari-ongaku
 
     ---
 
-    How to add a session, change to a different session handler and what all session handlers do.
+    Adding and controlling of sessions, as well as changing handlers.
 
     [:material-arrow-right: Learn more](./session.md)
 
@@ -57,7 +57,7 @@ pip install hikari-ongaku
 
     ---
 
-    Shows how to use the injection for arc, and tanjun.
+    Using injection of players and extensions.
 
     [:material-arrow-right: Learn more](./injection.md)
 
@@ -65,13 +65,13 @@ pip install hikari-ongaku
 
 ## Q's and A's
 
-Below, will be the most common questions, and some answers to said questions.
+Some of the most common questions, alongside the answers.
 
 <br>
 
 |Question|Answer|
 |--------|------|
-|Why can't I use ongaku with a rest bot?|Ongaku relies on events, like the [Voice Server Update](https://docs.hikari-py.dev/en/latest/reference/hikari/events/voice_events/#hikari.events.voice_events.VoiceServerUpdateEvent) and the [Voice State Update](https://docs.hikari-py.dev/en/latest/reference/hikari/events/voice_events/#hikari.events.voice_events.VoiceStateUpdateEvent) events. Without them, the bot has no idea if its joined a voice channel, or the websocket connection, that it can stream audio to.|
-|What is Ongaku compatible with?|Ongaku should be compatible with all hikari based command handlers and component handlers, however, further testing is required.|
+|Why can't I use ongaku with a rest bot?|Ongaku relies on events, like the [Voice Server Update](https://docs.hikari-py.dev/en/latest/reference/hikari/events/voice_events/#hikari.events.voice_events.VoiceServerUpdateEvent) and the [Voice State Update](https://docs.hikari-py.dev/en/latest/reference/hikari/events/voice_events/#hikari.events.voice_events.VoiceStateUpdateEvent) events. Without them, the bot has no idea if its joined a voice channel, or the websocket connection, that it can stream audio to. Discord also allows no connections to voice servers, if there is no active gateway connection alongside it.|
+|What is Ongaku compatible with?|Ongaku should be compatible with all hikari based command handlers and component handlers, however further testing might be required.|
 
 Got another question that should be added? contact me via [contact@mplaty.com](mailto:contact@mplaty.com)

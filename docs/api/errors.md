@@ -1,6 +1,6 @@
 ---
 title: Errors
-description: Errors and exceptions
+description: Errors and exceptions.
 ---
 
 # errors

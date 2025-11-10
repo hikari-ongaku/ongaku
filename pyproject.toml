@@ -1,56 +1,91 @@
-[build-system]
-requires = ["setuptools >= 77.0.3"]
-build-backend = "setuptools.build_meta"
-
 [project]
 name = "hikari-ongaku"
+description = "A simple voice library for Hikari."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = []
+maintainers = []
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Framework :: AsyncIO",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
 requires-python = ">=3.10.0,<3.14"
 dependencies = [
-    "hikari ~= 2.3.3",
-    "aiohttp ~= 3.11.0"
+    "hikari ~= 2.5.0",
+    "aiohttp ~= 3.12.0",
+    "regex ~= 2025.11.3",
+    "alluka ~= 0.3.0"
 ]
 dynamic = [
     "version",
-    "description",
-    "readme",
-    "license",
-    "authors",
-    "maintainers",
-    "classifiers",
-    "urls",
-    "optional-dependencies"
+]
+
+[project.urls]
+Homepage = "https://ongaku.mplaty.com"
+Documentation = "https://ongaku.mplaty.com"
+Repository = "https://github.com/hikari-ongaku/hikari-ongaku.git"
+Issues = "https://github.com/hikari-ongaku/hikari-ongaku/issues"
+Changelog = "https://ongaku.mplaty.com/changelog"
+
+[project.optional-dependencies]
+injection = [
+    "hikari-arc ~= 2.1.1",
+    "hikari-tanjun ~= 2.17.0"
+]
+speedups = [
+    "hikari[speedups] ~= 2.5.0",
+    "aiohttp[speedups] ~= 3.12.0",
+    "orjson ~= 3.11.4"
 ]
 
 [dependency-groups]
 dev = [
-    "nox[uv] ~= 2025.5.0"
+    "nox[uv] ~= 2025.10.16",
+    "pyright ~= 1.1.407"
 ]
 doc = [
-    "black ~= 25.1.0",
+    "black ~= 25.11.0",
     "mkdocs ~= 1.6.0",
-    "mkdocs-autorefs ~= 1.4.0",
-    "mkdocs-material[imaging] ~= 9.6.0",
+    "mkdocs-autorefs ~= 1.4.3",
+    "mkdocs-material[imaging] ~= 9.6.23",
     "mkdocs-material-extensions ~= 1.3.0",
-    "mkdocstrings-python ~= 1.16.0",
-    "mkdocstrings ~= 0.29.0",
+    "mkdocstrings-python ~= 1.18.2",
+    "mkdocstrings ~= 0.30.1",
     "Pygments ~= 2.19.0",
-    "pymdown-extensions ~= 10.15.0",
+    "pymdown-extensions ~= 10.16.1",
     "PyYAML ~= 6.0.0",
     "pyyaml_env_tag ~= 1.0.0",
     "Markdown ~= 3.7.0",
     "MarkupSafe ~= 3.0.0",
     "mergedeep ~= 1.3.0",
-    "griffe-inherited-docstrings ~= 1.1.0"
+    "griffe-inherited-docstrings ~= 1.1.2"
 ]
 test = [
-    "pytest ~= 8.3.0",
-    "mock ~= 5.1.0",
-    "orjson ~= 3.10.0",
-    "pytest-asyncio ~= 0.25.0",
-    "pytest-aiohttp ~= 1.0.0"
+    "pytest ~= 8.4.2",
+    "mock ~= 5.2.0",
+    "orjson ~= 3.11.4",
+    "pytest-asyncio ~= 1.2.0",
+    "pytest-aiohttp ~= 1.1.0"
 ]
 format = [
-    "ruff ~= 0.11.0"
+    "ruff ~= 0.14.4"
+]
+examples = [
+    "hikari-arc ~= 2.1.1",
+    "hikari-crescent ~= 1.3.0",
+    "hikari-tanjun ~= 2.17.0",
 ]
 
 
@@ -66,19 +101,14 @@ reportUnnecessaryTypeIgnoreComment = "warning"
 reportUninitializedInstanceVariable = "error"
 reportShadowedImports = "warning"
 
-[tool.ruff]
-extend-exclude = ["examples/*", ".venv/*"]
+[build-system]
+requires = ["hatchling>=1.27.0"]
+build-backend = "hatchling.build"
 
-[tool.ruff.format]
-docstring-code-format = true
+[tool.hatch.version]
+path = "ongaku/internal/about.py"
+pattern = "^__version__: typing\\.Final\\[str\\] = \"(?P<version>[0-9]+(\\.[0-9]+)?(\\.[0-9]+)?(\\.(dev|post|a)[0-9]+)?)\"$"
 
-[tool.ruff.lint.isort]
-force-single-line = true
-
-[tool.ruff.lint]
-select = ["E", "F", "I", "C", "N", "D2", "D3", "D415", "D417", "D418", "D419", "ASYNC", "Q", "RSE", "SIM", "RUF"]
-ignore = ["F405", "F403", "E501", "D205"]
-fixable = ["I", "D"]
-
-[tool.ruff.lint.pydocstyle]
-convention = "numpy"
+[tool.hatch.build.targets.wheel]
+packages = ["ongaku"]
+artifacts = ["pyproject.toml", "README.md", "LICENSE"]

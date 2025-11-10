@@ -1,0 +1,36 @@
+name: Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.6
+
+      - name: Set up Python
+        uses: actions/setup-python@v5.1.0
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install -Ur requirements.txt
+          pip install -Ur requirements/tests.txt
+          pip install -Ur requirements/injection.txt
+
+      - name: Run tests
+        env:
+          LL_SSL: ${{ secrets.LL_SSL }}
+          LL_HOST: ${{ secrets.LL_HOST }}
+          LL_PORT: ${{ secrets.LL_PORT }}
+          LL_PASSWORD: ${{ secrets.LL_PASSWORD }}
+        run: pytest tests

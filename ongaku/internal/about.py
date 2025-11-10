@@ -1,16 +1,3 @@
-"""About this library."""
-
-from __future__ import annotations
-
-import typing
-
-__author__: typing.Final[str] = "mplaty"
-__author_email__: typing.Final[str] = "contact@mplaty.com"
-__maintainer__: typing.Final[str] = "MPlaty"
-__license__: typing.Final[str] = "MIT"
-__url__: typing.Final[str] = "https://github.com/hikari-ongaku/hikari-ongaku"
-__version__: typing.Final[str] = "1.0.3"
-
 # MIT License
 
 # Copyright (c) 2023-present MPlatypus
@@ -32,3 +19,24 @@ __version__: typing.Final[str] = "1.0.3"
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+"""Information about the library."""
+
+from __future__ import annotations
+
+import typing
+
+__all__: typing.Sequence[str] = (
+    "__author__",
+    "__author_email__",
+    "__license__",
+    "__maintainer__",
+    "__url__",
+    "__version__",
+)
+
+__author__: typing.Final[str] = "mplaty"
+__author_email__: typing.Final[str] = "contact@mplaty.com"
+__maintainer__: typing.Final[str] = "MPlaty"
+__license__: typing.Final[str] = "MIT"
+__url__: typing.Final[str] = "https://github.com/hikari-ongaku/hikari-ongaku"
+__version__: typing.Final[str] = "1.0.3"

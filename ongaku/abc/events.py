@@ -1,80 +1,3 @@
-"""
-Event ABC's and Events.
-
-The session abstract classes and hikari events.
-"""
-
-from __future__ import annotations
-
-import abc
-import enum
-import typing
-
-import hikari
-
-if typing.TYPE_CHECKING:
-    from ongaku.client import Client
-    from ongaku.session import Session
-
-__all__ = (
-    "OngakuEvent",
-    "TrackEndReasonType",
-)
-
-
-class OngakuEvent(hikari.Event, abc.ABC):
-    """Ongaku Event.
-
-    The base ongaku event, that adds the client and session to all events.
-    """
-
-    __slots__: typing.Sequence[str] = ("_app", "_client", "_session")
-
-    @property
-    def client(self) -> Client:
-        """The ongaku client attached to the event."""
-        return self._client
-
-    @property
-    def session(self) -> Session:
-        """The session attached to the event."""
-        return self._session
-
-    @property
-    def app(self) -> hikari.RESTAware:
-        return self._app
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, OngakuEvent):
-            return False
-
-        if self.client != other.client:
-            return False
-
-        return self.session == other.session
-
-
-class TrackEndReasonType(str, enum.Enum):
-    """
-    Track end reason type.
-
-    The track end reason type for the track that was just playing.
-
-    ![Lavalink](../../assets/lavalink_logo.png){ .twemoji } [Reference](https://lavalink.dev/api/websocket#track-end-reason)
-    """
-
-    FINISHED = "finished"
-    """The track finished playing."""
-    LOADFAILED = "loadFailed"
-    """The track failed to load."""
-    STOPPED = "stopped"
-    """The track was stopped."""
-    REPLACED = "replaced"
-    """The track was replaced."""
-    CLEANUP = "cleanup"
-    """The track was cleaned up."""
-
-
 # MIT License
 
 # Copyright (c) 2023-present MPlatypus
@@ -96,3 +19,82 @@ class TrackEndReasonType(str, enum.Enum):
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+"""Abstract event objects."""
+
+from __future__ import annotations
+
+import abc
+import typing
+
+import hikari
+
+if typing.TYPE_CHECKING:
+    from ongaku import session
+    from ongaku import track
+    from ongaku.client import Client
+
+__all__: typing.Sequence[str] = ("OngakuEvent", "QueueEvent", "TrackEvent")
+
+
+class OngakuEvent(hikari.Event, abc.ABC):
+    """Ongaku Event.
+
+    The base ongaku event, that adds the client and session to all events.
+    """
+
+    __slots__: typing.Sequence[str] = ()
+
+    @property
+    @abc.abstractmethod
+    def client(self) -> Client:
+        """The ongaku client attached to the event."""
+
+    @property
+    @abc.abstractmethod
+    def session(self) -> session.Session:
+        """The session attached to the event."""
+
+
+class SessionEvent(OngakuEvent, abc.ABC):
+    """Session Event.
+
+    Dispatched when a session event occurs.
+    """
+
+
+class TrackEvent(OngakuEvent, abc.ABC):
+    """Track Event.
+
+    Dispatched when a track event occurs.
+    """
+
+    __slots__: typing.Sequence[str] = ()
+
+    @property
+    @abc.abstractmethod
+    def guild_id(self) -> hikari.Snowflake:
+        """The guild ID related to this event."""
+
+    @property
+    @abc.abstractmethod
+    def track(self) -> track.Track:
+        """The track related to this event."""
+
+
+class QueueEvent(OngakuEvent):
+    """Queue event.
+
+    Dispatched when the queue gets changed.
+    """
+
+    __slots__: typing.Sequence[str] = ()
+
+    @property
+    @abc.abstractmethod
+    def guild_id(self) -> hikari.Snowflake:
+        """The guild ID related to this event."""
+
+    @property
+    @abc.abstractmethod
+    def old_track(self) -> track.Track:
+        """The track that was previously playing."""

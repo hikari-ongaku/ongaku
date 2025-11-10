@@ -1,6 +1,6 @@
 ---
 title: Player
-description: Player base
+description: Player and entities related to Lavalink player objects.
 ---
 
 # Player

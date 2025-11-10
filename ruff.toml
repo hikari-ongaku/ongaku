@@ -1,0 +1,68 @@
+extend-exclude = [".venv/*"]
+
+[format]
+docstring-code-format = true
+docstring-code-line-length = 100
+indent-style = "space"
+line-ending = "lf"
+quote-style = "double"
+
+[lint]
+select = ["ALL"]
+ignore = [
+    "EM101",   # Raw string in exception.
+    "D105",    # Undocumented magic methods. FIXME: Not sure I want this.
+]
+fixable = ["ALL"]
+unfixable = []
+
+[lint.extend-per-file-ignores]
+"tests/**/*.py" = [
+    "S101",    # Allow asserts.
+    "ANN201",  # Allow missing return type.
+    "SLF001",  # Allow private members to be accessed.
+    "D",       # Allow missing docstrings.
+    "S105",    # Allow possible hardcoded passwords variables.
+    "S106",    # Allow possible hardcoded passwords function arguments.
+    "PLR2004", # Allow magic value comparisons.
+    "E501",    # Allow lines to be long.
+    "FBT003",  # Allow boolean in function call.
+    "INP001",  # Allow missing __init__ files.
+    "PLR0913", # Allow many function arguments.
+    "FBT001",  # Allow positional boolean function arguments.
+    "TRY",     # Allow non-custom exceptions.
+]
+"noxfile.py" = ["D"]
+"examples/**/*.py" = ["D", "LOG015", "BLE001", "B008", "INP001", "E501", "S106", "PLR2004", "T201", "TC002"]
+
+[lint.flake8-copyright]
+author = "mplaty"
+
+#[lint.flake8-pytest-style]
+#raises-require-match-for = [] # FIXME: Fill this out with valid raises error types. If needed
+
+[lint.flake8-quotes]
+avoid-escape = false
+
+[lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[lint.flake8-type-checking]
+strict = true
+
+[lint.isort]
+force-single-line = true
+required-imports = ["from __future__ import annotations"]
+
+[lint.pycodestyle]
+ignore-overlong-task-comments = true
+max-doc-length = 120
+
+[lint.pydocstyle]
+convention = "numpy"
+
+[lint.pylint]
+allow-dunder-method-names = []
+max-args = 10
+max-bool-expr = 5 # FIXME: Not sure I want this.
+max-returns = 5 # FIXME: Not sure I want this.

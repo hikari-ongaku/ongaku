@@ -1,18 +1,3 @@
-"""
-Checker.
-
-Allows for you to check if a string is a link or a query.
-"""
-
-from __future__ import annotations
-
-from .abc import Checked
-from .abc import CheckedType
-from .checker import check
-
-__all__ = ("Checked", "CheckedType", "check")
-
-
 # MIT License
 
 # Copyright (c) 2023-present MPlatypus
@@ -34,3 +19,17 @@ __all__ = ("Checked", "CheckedType", "check")
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+"""Checker.
+
+Allows for you to check if a string is a link or a query.
+"""
+
+from __future__ import annotations
+
+from ongaku.ext.checker.checker import Sites
+from ongaku.ext.checker.checker import check
+
+__all__ = (
+    "Sites",
+    "check",
+)

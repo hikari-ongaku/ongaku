@@ -1,10 +1,3 @@
-"""
-The extension folder.
-
-When making a new extension, this is where the extension must be placed.
-"""
-
-
 # MIT License
 
 # Copyright (c) 2023-present MPlatypus
@@ -26,3 +19,4 @@ When making a new extension, this is where the extension must be placed.
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+"""Extensions for ongaku."""

@@ -1,111 +1,344 @@
-"""
-Player.
+# MIT License
 
-The player function, for all player related things.
-"""
+# Copyright (c) 2023-present MPlatypus
+
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+"""Player and entities related to Lavalink player objects."""
 
 from __future__ import annotations
 
+import asyncio
+import datetime
+import logging
 import random
 import typing
-import typing as t
-from asyncio import TimeoutError
-from asyncio import gather
 
 import hikari
 
 from ongaku import errors
 from ongaku import events
-from ongaku.abc import playlist as playlist_
-from ongaku.abc import track as track_
-from ongaku.abc.events import TrackEndReasonType
-from ongaku.events import PlayerUpdateEvent
-from ongaku.events import TrackEndEvent
-from ongaku.impl.player import Voice
-from ongaku.internal.logger import TRACE_LEVEL
-from ongaku.internal.logger import logger
+from ongaku import playlist
+from ongaku import track
+from ongaku.internal.logging import TRACE_LEVEL
 
-if t.TYPE_CHECKING:
-    from ongaku.abc import player as player_
-    from ongaku.abc.filters import Filters
-    from ongaku.internal.types import RequestorT
-    from ongaku.session import Session
-
-_logger = logger.getChild("player")
-
-__all__ = ("Player",)
+if typing.TYPE_CHECKING:
+    from ongaku import filters
+    from ongaku import session
+    from ongaku.api import builders
 
 
-class Player:
-    """
-    Base player.
+__all__: typing.Sequence[str] = (
+    "PartialPlayer",
+    "Player",
+    "State",
+    "Voice",
+)
 
-    The class that allows the player, to play songs, and more.
+_logger: typing.Final[logging.Logger] = logging.getLogger("ongaku.player")
 
-    Parameters
-    ----------
-    session
-        The session that the player is attached too.
-    guild
-        The Guild the bot is attached too.
+
+class PartialPlayer:
+    """Player.
+
+    All of the information about the player, for the specified guild.
+
+    ![Lavalink](../assets/lavalink_logo.png){ .twemoji } [Reference](https://lavalink.dev/api/rest.html#player)
     """
 
     __slots__: typing.Sequence[str] = (
-        "_autoplay",
-        "_channel_id",
-        "_connected",
         "_filters",
         "_guild_id",
-        "_is_alive",
         "_is_paused",
-        "_loop",
-        "_position",
-        "_queue",
-        "_session",
-        "_session_id",
         "_state",
+        "_track",
         "_voice",
         "_volume",
     )
 
     def __init__(
         self,
-        session: Session,
+        *,
+        guild_id: hikari.Snowflake,
+        track: track.Track | None,
+        volume: int,
+        is_paused: bool,
+        state: State,
+        voice: Voice,
+        filters: filters.Filters | None,
+    ) -> None:
+        self._guild_id = guild_id
+        self._track = track
+        self._volume = volume
+        self._is_paused = is_paused
+        self._state = state
+        self._voice = voice
+        self._filters = filters
+
+    @property
+    def guild_id(self) -> hikari.Snowflake:
+        """The guild id this player is attached too."""
+        return self._guild_id
+
+    @property
+    def track(self) -> track.Track | None:
+        """The track the player is currently playing.
+
+        !!! note
+            If the track is `None` then there is no current track playing.
+        """
+        return self._track
+
+    @property
+    def volume(self) -> int:
+        """The volume of the player."""
+        return self._volume
+
+    @property
+    def is_paused(self) -> bool:
+        """Whether the player is paused."""
+        return self._is_paused
+
+    @property
+    def state(self) -> State:
+        """The player's state."""
+        return self._state
+
+    @property
+    def voice(self) -> Voice:
+        """The player's voice state."""
+        return self._voice
+
+    @property
+    def filters(self) -> filters.Filters | None:
+        """The filter object."""
+        return self._filters
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, PartialPlayer):
+            return False
+
+        return (
+            self.guild_id == other.guild_id
+            and self.track == other.track
+            and self.volume == other.volume
+            and self.is_paused == other.is_paused
+            and self.state == other.state
+            and self.voice == other.voice
+            and self.filters == other.filters
+        )
+
+    def __hash__(self) -> int:
+        return hash(
+            (
+                self.guild_id,
+                self.track,
+                self.volume,
+                self.is_paused,
+                self.state,
+                self.voice,
+                self.filters,
+            ),
+        )
+
+
+class State:
+    """State.
+
+    All the information for the players current state.
+
+    ![Lavalink](../assets/lavalink_logo.png){ .twemoji } [Reference](https://lavalink.dev/api/websocket.html#player-state)
+    """
+
+    _test: typing.Mapping[str, typing.Any] = {}
+
+    __slots__: typing.Sequence[str] = (
+        "_is_connected",
+        "_ping",
+        "_position",
+        "_time",
+    )
+
+    def __init__(
+        self,
+        *,
+        time: datetime.datetime,
+        position: int,
+        is_connected: bool,
+        ping: int,
+    ) -> None:
+        self._time = time
+        self._position = position
+        self._is_connected = is_connected
+        self._ping = ping
+
+    @classmethod
+    def empty(cls) -> State:
+        """Empty.
+
+        Build an empty [State][ongaku.player.State] object.
+        """
+        return cls(
+            time=datetime.datetime.fromtimestamp(0, tz=datetime.timezone.utc),
+            position=0,
+            is_connected=False,
+            ping=-1,
+        )
+
+    @property
+    def time(self) -> datetime.datetime:
+        """The current datetime."""
+        return self._time
+
+    @property
+    def position(self) -> int:
+        """The position of the track in milliseconds."""
+        return self._position
+
+    @property
+    def is_connected(self) -> bool:
+        """Whether Lavalink is connected to the voice gateway."""
+        return self._is_connected
+
+    @property
+    def ping(self) -> int:
+        """Ping.
+
+        The ping of the session to the Discord voice server.
+        This value is in milliseconds.
+
+        !!! note
+            If this value is `-1`, then the player is not connected.
+        """
+        return self._ping
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, State):
+            return False
+
+        return (
+            self.time == other.time
+            and self.position == other.position
+            and self.is_connected == other.is_connected
+            and self.ping == other.ping
+        )
+
+    def __hash__(self) -> int:
+        return hash((self.time, self.position, self.is_connected, self.ping))
+
+
+class Voice:
+    """Voice.
+
+    All of the Player Voice information.
+
+    ![Lavalink](../assets/lavalink_logo.png){ .twemoji } [Reference](https://lavalink.dev/api/rest.html#voice-state)
+    """
+
+    __slots__: typing.Sequence[str] = (
+        "_endpoint",
+        "_session_id",
+        "_token",
+    )
+
+    def __init__(self, *, token: str, endpoint: str, session_id: str) -> None:
+        self._token = token
+        self._endpoint = endpoint
+        self._session_id = session_id
+
+    @classmethod
+    def empty(cls) -> Voice:
+        """Empty.
+
+        Build an empty [Voice][ongaku.player.Voice] object.
+        """
+        return cls(token="", endpoint="", session_id="")
+
+    @property
+    def token(self) -> str:
+        """The Discord voice token to authenticate with."""
+        return self._token
+
+    @property
+    def endpoint(self) -> str:
+        """The Discord voice endpoint to connect to."""
+        return self._endpoint
+
+    @property
+    def session_id(self) -> str:
+        """The Discord voice session id to authenticate with."""
+        return self._session_id
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Voice):
+            return False
+
+        return (
+            self.token == other.token
+            and self.endpoint == other.endpoint
+            and self.session_id == other.session_id
+        )
+
+    def __hash__(self) -> int:
+        return hash((self.token, self.endpoint, self.session_id))
+
+
+class Player(PartialPlayer):
+    """Player.
+
+    A player object that can be controlled.
+    """
+
+    def __init__(
+        self,
+        session: session.Session,
         guild: hikari.SnowflakeishOr[hikari.Guild],
-    ):
+    ) -> None:
         self._session = session
         self._guild_id = hikari.Snowflake(guild)
         self._channel_id = None
         self._is_alive = False
         self._is_paused = True
-        self._voice: player_.Voice | None = None
-        self._state: player_.State | None = None
-        self._queue: typing.MutableSequence[track_.Track] = []
-        self._filters: Filters | None = None
-        self._connected: bool = False
-        self._session_id: str | None = None
+        self._voice: Voice = Voice.empty()
+        self._state: State = State.empty()
+        self._queue: typing.MutableSequence[track.Track] = []
+        self._filters: filters.Filters | None = None
         self._volume: int = -1
         self._autoplay: bool = True
         self._position: int = 0
         self._loop = False
+        self._track = None
 
-        self.app.event_manager.subscribe(TrackEndEvent, self._track_end_event)
-        self.app.event_manager.subscribe(PlayerUpdateEvent, self._player_update_event)
+        session.app.event_manager.subscribe(events.TrackEndEvent, self._track_end_event)
+        session.app.event_manager.subscribe(
+            events.PlayerUpdateEvent,
+            self._player_update_event,
+        )
 
     @property
-    def session(self) -> Session:
+    def session(self) -> session.Session:
         """The session this player is included in."""
         return self._session
 
     @property
     def app(self) -> hikari.GatewayBotAware:
         """The session this player is included in."""
-        return self.session.client.app
-
-    @property
-    def guild_id(self) -> hikari.Snowflake:
-        """The `guild id` this player is attached too."""
-        return self._guild_id
+        return self._session.app
 
     @property
     def channel_id(self) -> hikari.Snowflake | None:
@@ -132,23 +365,10 @@ class Player:
         return self._position
 
     @property
-    def volume(self) -> int:
-        """The volume of the player.
-
-        If `-1` the player has not been connected to lavalink and updated.
-        """
-        return self._volume
-
-    @property
-    def is_paused(self) -> bool:
-        """Whether the player is currently paused."""
-        return self._is_paused
-
-    @property
     def autoplay(self) -> bool:
         """Autoplay.
 
-        Whether or not the next song will play, when this song ends.
+        Whether the next song will play, when this song ends.
         """
         return self._autoplay
 
@@ -158,36 +378,22 @@ class Player:
         return self._loop
 
     @property
-    def connected(self) -> bool:
+    def is_connected(self) -> bool:
         """Connected.
 
-        Whether or not the player is connected to discords gateway.
+        Whether the player is connected to discords gateway.
         """
-        return self._connected
+        return self.state.is_connected
 
     @property
-    def queue(self) -> t.Sequence[track_.Track]:
+    def queue(self) -> typing.Sequence[track.Track]:
         """The current queue of tracks."""
         return self._queue
-
-    @property
-    def voice(self) -> player_.Voice | None:
-        """The player's voice state."""
-        return self._voice
-
-    @property
-    def state(self) -> player_.State | None:
-        """The player's player state."""
-        return self._state
-
-    @property
-    def filters(self) -> Filters | None:
-        """Filters for the player."""
-        return self._filters
 
     async def connect(
         self,
         channel: hikari.SnowflakeishOr[hikari.GuildVoiceChannel],
+        /,
         *,
         mute: bool = False,
         deaf: bool = True,
@@ -207,16 +413,19 @@ class Player:
         channel
             The channel (or channel id) that you wish to connect the bot to.
         mute
-            Whether or not to mute the player.
+            Whether to mute the player.
         deaf
-            Whether or not to deafen the player.
+            Whether to deafen the player.
 
         Raises
         ------
         SessionStartError
             Raised when the players session has not yet been started.
-        PlayerConnectError
-            Raised when the voice state of the bot cannot be updated, or the voice events required could not be received.
+        PlayerConnectEventMissingError
+            Raised when the voice state of the bot cannot be updated,
+            or the voice events required could not be received.
+        ValueError
+            Raised when the raw endpoint was not set.
         RestEmptyError
             Raised when a return type was requested, yet nothing was received.
         RestStatusError
@@ -226,11 +435,15 @@ class Player:
         BuildError
             Raised when a construction of a ABC class fails.
         """
-        session = self.session._get_session_id()
+        session_id = self.session.session_id
+        if session_id is None:
+            raise errors.SessionStartError
 
         _logger.log(
             TRACE_LEVEL,
-            f"Attempting connection to voice channel: {hikari.Snowflake(channel)} in guild: {self.guild_id}",
+            "Attempting connection to voice channel: %s in guild: %s",
+            hikari.Snowflake(channel),
+            self.guild_id,
         )
 
         self._channel_id = hikari.Snowflake(channel)
@@ -242,16 +455,18 @@ class Player:
                 self_mute=mute,
                 self_deaf=deaf,
             )
-        except Exception as e:
-            raise errors.PlayerConnectError(str(e))
+        except Exception as err:
+            raise errors.PlayerConnectError(str(err)) from err
 
         _logger.log(
             TRACE_LEVEL,
-            f"waiting for voice events for channel: {self.channel_id} in guild: {self.guild_id}",
+            "waiting for voice events for channel: %s in guild: %s",
+            self.channel_id,
+            self.guild_id,
         )
 
         try:
-            state_event, server_event = await gather(
+            state_event, server_event = await asyncio.gather(
                 self.app.event_manager.wait_for(
                     hikari.VoiceStateUpdateEvent,
                     timeout=5,
@@ -261,19 +476,17 @@ class Player:
                     timeout=5,
                 ),
             )
-        except TimeoutError:
-            raise errors.PlayerConnectError(
-                f"Could not connect to voice channel {self.channel_id} in {self.guild_id} due to events not being received.",
-            )
+        except TimeoutError as err:
+            raise errors.PlayerConnectEventMissingError from err
 
         if server_event.raw_endpoint is None:
-            raise errors.PlayerConnectError(
-                f"Endpoint missing for attempted server connection for voice channel {self.channel_id} in {self.guild_id}",
-            )
+            raise ValueError
 
         _logger.log(
             TRACE_LEVEL,
-            f"Successfully received events for channel: {self.channel_id} in guild: {self.guild_id}",
+            "Successfully received events for channel: %s in guild: %s",
+            self.channel_id,
+            self.guild_id,
         )
 
         new_voice = Voice(
@@ -285,7 +498,7 @@ class Player:
         self._voice = new_voice
 
         player = await self.session.client.rest.update_player(
-            session,
+            session_id,
             self.guild_id,
             voice=new_voice,
             no_replace=False,
@@ -296,7 +509,9 @@ class Player:
 
         _logger.log(
             TRACE_LEVEL,
-            f"Successfully connected, and sent data to lavalink for channel: {self.channel_id} in guild: {self.guild_id}",
+            "Successfully connected to channel: %s in guild: %s",
+            self.channel_id,
+            self.guild_id,
         )
 
         self._update(player)
@@ -305,7 +520,8 @@ class Player:
         """
         Disconnect.
 
-        Disconnect the player from the discord channel, and stop the currently playing track.
+        Disconnect the player from the discord channel,
+        and stop the currently playing track.
 
         Example
         -------
@@ -326,44 +542,56 @@ class Player:
         BuildError
             Raised when a construction of a ABC class fails.
         """
-        session = self.session._get_session_id()
+        session_id = self.session.session_id
+        if session_id is None:
+            raise errors.SessionStartError
 
         await self.clear()
 
         _logger.log(
             TRACE_LEVEL,
-            f"Attempting to delete player for channel: {self.channel_id} in guild: {self.guild_id}",
+            "Attempting to delete player for channel: %s in guild: %s",
+            self.channel_id,
+            self.guild_id,
         )
 
         await self.session.client.rest.delete_player(
-            session,
+            session_id,
             self._guild_id,
             session=self.session,
         )
 
         _logger.log(
             TRACE_LEVEL,
-            f"Successfully deleted player for channel: {self.channel_id} in guild: {self.guild_id}",
+            "Successfully deleted player for channel: %s in guild: %s",
+            self.channel_id,
+            self.guild_id,
         )
 
         self._is_alive = False
 
         _logger.log(
             TRACE_LEVEL,
-            f"Updating voice state for channel: {self.channel_id} in guild: {self.guild_id}",
+            "Updating voice state for channel: %s in guild: %s",
+            self.channel_id,
+            self.guild_id,
         )
 
         await self.app.update_voice_state(self.guild_id, None)
 
         _logger.log(
             TRACE_LEVEL,
-            f"Successfully updated voice state for channel: {self.channel_id} in guild: {self.guild_id}",
+            "Successfully updated voice state for channel: %s in guild: %s",
+            self.channel_id,
+            self.guild_id,
         )
 
     async def play(
         self,
-        track: track_.Track | None = None,
-        requestor: RequestorT | None = None,
+        track: track.Track | None = None,
+        /,
+        *,
+        requestor: hikari.SnowflakeishOr[hikari.PartialUser] | None = None,
     ) -> None:
         """Play.
 
@@ -397,22 +625,24 @@ class Player:
         BuildError
             Raised when a construction of a ABC class fails.
         """
-        session = self.session._get_session_id()
+        session_id = self.session.session_id
+        if session_id is None:
+            raise errors.SessionStartError
 
         if self.channel_id is None:
-            raise errors.PlayerConnectError("Not connected to a channel.")
+            raise errors.PlayerNotConnectedError
 
         if len(self.queue) == 0 and track is None:
-            raise errors.PlayerQueueError("Queue is empty.")
+            raise errors.PlayerQueueEmptyError
 
         if track:
             if requestor:
-                track._requestor = hikari.Snowflake(requestor)
+                track._requestor = hikari.Snowflake(requestor)  # noqa: SLF001
 
             self._queue.insert(0, track)
 
         player = await self.session.client.rest.update_player(
-            session,
+            session_id,
             self.guild_id,
             track=self.queue[0],
             no_replace=False,
@@ -425,8 +655,9 @@ class Player:
 
     def add(
         self,
-        tracks: t.Sequence[track_.Track] | playlist_.Playlist | track_.Track,
-        requestor: RequestorT | None = None,
+        tracks: typing.Sequence[track.Track] | playlist.Playlist | track.Track,
+        *,
+        requestor: hikari.SnowflakeishOr[hikari.PartialUser] | None = None,
     ) -> None:
         """
         Add tracks.
@@ -435,7 +666,8 @@ class Player:
 
         !!! note
             This will not automatically start playing the songs.
-            please call `.play()` after, with no track, if the player is not already playing.
+            please call `.play()` after, with no track,
+            if the player is not already playing.
 
         Example
         -------
@@ -457,35 +689,38 @@ class Player:
 
         track_count = 0
 
-        if isinstance(tracks, track_.Track):
+        if isinstance(tracks, track.Track):
             if new_requestor:
-                tracks._requestor = new_requestor
+                tracks._requestor = new_requestor  # noqa: SLF001
             self._queue.append(tracks)
             track_count = 1
             return
 
-        if isinstance(tracks, playlist_.Playlist):
+        if isinstance(tracks, playlist.Playlist):
             tracks = tracks.tracks
 
-        for track in tracks:
+        for t in tracks:
             if new_requestor:
-                track._requestor = new_requestor
-            self._queue.append(track)
+                t._requestor = new_requestor  # noqa: SLF001
+            self._queue.append(t)
             track_count += 1
 
         _logger.log(
             TRACE_LEVEL,
-            f"Successfully added {track_count} track(s) to {self.guild_id}",
+            "Successfully added %s track(s) to %s",
+            track_count,
+            self.guild_id,
         )
 
-    async def pause(self, value: bool | None = None) -> None:
+    async def pause(self, value: bool | None = None, /) -> None:  # noqa: FBT001
         """
         Pause the player.
 
         Allows for the user to pause the currently playing track on this player.
 
         !!! info
-            `True` will force pause the player, `False` will force unpause the player. Leaving it empty, will toggle it from its current state.
+            `True` will force pause the player, `False` will force unpause the player.
+            Leaving it empty, will toggle it from its current state.
 
         Example
         -------
@@ -511,15 +746,17 @@ class Player:
         BuildError
             Raised when a construction of a ABC class fails.
         """
-        session = self.session._get_session_id()
+        session_id = self.session.session_id
+        if session_id is None:
+            raise errors.SessionStartError
 
-        if value:
+        if value is not None:
             self._is_paused = value
         else:
             self._is_paused = not self.is_paused
 
         player = await self.session.client.rest.update_player(
-            session,
+            session_id,
             self.guild_id,
             paused=self.is_paused,
             session=self.session,
@@ -527,7 +764,9 @@ class Player:
 
         _logger.log(
             TRACE_LEVEL,
-            f"Successfully set paused state to {self.is_paused} in guild {self.guild_id}",
+            "Successfully set paused state to %s in guild %s",
+            self.is_paused,
+            self.guild_id,
         )
 
         self._update(player)
@@ -560,19 +799,23 @@ class Player:
         BuildError
             Raised when a construction of a ABC class fails.
         """
-        session = self.session._get_session_id()
+        session_id = self.session.session_id
+        if session_id is None:
+            raise errors.SessionStartError
 
         player = await self.session.client.rest.update_player(
-            session,
+            session_id,
             self.guild_id,
             track=None,
             no_replace=False,
             session=self.session,
         )
 
-        self._is_paused = True
-
-        _logger.log(TRACE_LEVEL, f"Successfully stopped track in guild {self.guild_id}")
+        _logger.log(
+            TRACE_LEVEL,
+            "Successfully stopped track in guild %s",
+            self.guild_id,
+        )
 
         self._update(player)
 
@@ -589,10 +832,8 @@ class Player:
         PlayerQueueError
             Raised when the queue has 2 or less tracks in it.
         """
-        if len(self.queue) <= 2:
-            raise errors.PlayerQueueError(
-                "Queue must have more than 2 tracks to shuffle.",
-            )
+        if len(self.queue) <= 2:  # noqa: PLR2004
+            raise errors.PlayerQueueLengthError
 
         new_queue = list(self.queue)
 
@@ -606,10 +847,11 @@ class Player:
 
         _logger.log(
             TRACE_LEVEL,
-            f"Successfully shuffled queue in guild {self.guild_id}",
+            "Successfully shuffled queue in guild %s",
+            self.guild_id,
         )
 
-    async def skip(self, amount: int = 1) -> None:
+    async def skip(self, amount: int = 1, /) -> None:
         """
         Skip songs.
 
@@ -644,9 +886,9 @@ class Player:
             Raised when a construction of a ABC class fails.
         """
         if amount <= 0:
-            raise ValueError(f"Skip amount cannot be 0 or negative. Value: {amount}")
+            raise ValueError
         if len(self.queue) == 0:
-            raise errors.PlayerQueueError("Queue is empty.")
+            raise errors.PlayerQueueEmptyError
 
         removed_tracks = 0
         for _ in range(amount):
@@ -655,16 +897,13 @@ class Player:
             self._queue.pop(0)
             removed_tracks += 1
 
-        _logger.log(
-            TRACE_LEVEL,
-            f"Successfully removed {removed_tracks} track(s) out of {amount} in guild {self.guild_id}",
-        )
-
-        session = self.session._get_session_id()
+        session_id = self.session.session_id
+        if session_id is None:
+            raise errors.SessionStartError
 
         if len(self.queue) <= 0:
             player = await self.session.client.rest.update_player(
-                session,
+                session_id,
                 self.guild_id,
                 track=None,
                 no_replace=False,
@@ -674,7 +913,7 @@ class Player:
             self._update(player)
         else:
             player = await self.session.client.rest.update_player(
-                session,
+                session_id,
                 self.guild_id,
                 track=self.queue[0],
                 no_replace=False,
@@ -683,61 +922,96 @@ class Player:
 
             self._update(player)
 
-        _logger.log(TRACE_LEVEL, f"Successfully skipped track in {self.guild_id}")
+        _logger.log(
+            TRACE_LEVEL,
+            "Successfully removed %s track(s) out of %s in guild %s",
+            removed_tracks,
+            amount,
+            self.guild_id,
+        )
 
-    def remove(self, value: track_.Track | int) -> None:
-        """
-        Remove track.
+        _logger.log(TRACE_LEVEL, "Successfully skipped track in %s", self.guild_id)
+
+    async def remove(
+        self,
+        value: track.Track | int,
+        /,
+        play_next: bool = False,  # noqa: FBT001, FBT002
+    ) -> None:
+        """Remove track.
 
         Removes the track, or the track in that position.
 
-        !!! warning
-            This does not stop the track if its in the first position.
+        If the track is in the first position,
+        it will also skip the current track,
+        and proceed to play the next one.
 
         Example
         -------
         ```py
-        await player.remove()
+        await player.remove(1)
         ```
 
         Parameters
         ----------
         value
-            Remove a selected track. If [Track][ongaku.abc.track.Track], then it will remove the first occurrence of that track. If an integer, it will remove the track at that position.
+            Remove a selected track. If [Track][ongaku.track.Track],
+            then it will remove the first occurrence of that track.
+            If an integer, it will remove the track at that position.
+        play_next
+            Starts playing the first track if removed, and this value is True.
+            Otherwise, the current track will just stop playing.
 
         Raises
         ------
+        SessionStartError
+            Raised when the players session has not yet been started.
+        RestEmptyError
+            Raised when a return type was requested, yet nothing was received.
+        RestStatusError
+            Raised when nothing was received, but a 4XX/5XX error was reported.
+        RestRequestError
+            Raised when a rest error is returned with a 4XX/5XX error.
+        BuildError
+            Raised when a construction of a ABC class fails.
         PlayerQueueError
             Raised when the removal of a track fails.
         """
+        session_id = self.session.session_id
+        if session_id is None:
+            raise errors.SessionStartError
+
         if len(self.queue) == 0:
-            raise errors.PlayerQueueError("Queue is empty.")
+            raise errors.PlayerQueueEmptyError
 
         try:
             index = (
-                self._queue.index(value) if isinstance(value, track_.Track) else value
-            )
-        except ValueError:
-            if isinstance(value, track_.Track):
-                raise errors.PlayerQueueError(
-                    f"Failed to remove song: {value.info.title}",
-                )
-            raise errors.PlayerQueueError(
-                f"Failed to remove song in position {value}",
+                self._queue.index(value) if isinstance(value, track.Track) else value
             )
 
-        try:
-            self._queue.pop(index)
-        except IndexError:
-            if isinstance(value, track_.Track):
-                raise errors.PlayerQueueError(
-                    f"Failed to remove song: {value.info.title}",
-                )
-            raise errors.PlayerQueueError(
-                f"Failed to remove song in position {value}",
-            )
+            del self._queue[index]
+        except (ValueError, IndexError) as err:
+            raise errors.PlayerQueueError from err
 
-        _logger.log(TRACE_LEVEL, f"Successfully removed track in {self.guild_id}")
+        if index == 0:
+            if play_next:
+                player = await self.session.client.rest.update_player(
+                    session_id,
+                    self.guild_id,
+                    track=self.queue[0],
+                    session=self.session,
+                )
+            else:
+                player = await self.session.client.rest.update_player(
+                    session_id,
+                    self.guild_id,
+                    track=None,
+                    session=self.session,
+                )
+
+            self._update(player)
+
+        _logger.log(TRACE_LEVEL, "Successfully removed track in %s", self.guild_id)
 
     async def clear(self) -> None:
         """
@@ -766,21 +1040,22 @@ class Player:
         """
         self._queue.clear()
 
-        session = self.session._get_session_id()
+        session_id = self.session.session_id
+        if session_id is None:
+            raise errors.SessionStartError
 
         player = await self.session.client.rest.update_player(
-            session,
+            session_id,
             self.guild_id,
             track=None,
-            no_replace=False,
             session=self.session,
         )
 
         self._update(player)
 
-        _logger.log(TRACE_LEVEL, f"Successfully cleared queue in {self.guild_id}")
+        _logger.log(TRACE_LEVEL, "Successfully cleared queue in %s", self.guild_id)
 
-    def set_autoplay(self, enable: bool | None = None) -> bool:
+    def set_autoplay(self, value: bool | None = None, /) -> bool:  # noqa: FBT001
         """
         Set autoplay.
 
@@ -794,18 +1069,19 @@ class Player:
 
         Parameters
         ----------
-        enable
-            Whether or not to enable autoplay. If left empty, it will toggle the current status.
+        value
+            The value to set the loop status to.
+            If left empty, it will toggle the current loop status.
         """
-        if enable:
-            self._autoplay = enable
+        if value is not None:
+            self._autoplay = value
             return self._autoplay
 
         self._autoplay = not self._autoplay
 
         return self._autoplay
 
-    async def set_volume(self, volume: int = 100) -> None:
+    async def set_volume(self, volume: int = 100, /) -> None:
         """
         Set the volume.
 
@@ -830,7 +1106,7 @@ class Player:
         SessionStartError
             Raised when the players session has not yet been started.
         ValueError
-            Raised when the value is below 0, or above 1000.
+            Raised when the volume is set below 0.
         RestEmptyError
             Raised when a return type was requested, yet nothing was received.
         RestStatusError
@@ -839,17 +1115,18 @@ class Player:
             Raised when a rest error is returned with a 4XX/5XX error.
         BuildError
             Raised when a construction of a ABC class fails.
+        ValueError
+            Raised when the volume is set to less than 0.
         """
-        session = self.session._get_session_id()
+        session_id = self.session.session_id
+        if session_id is None:
+            raise errors.SessionStartError
 
-        if volume:
-            if volume < 0:
-                raise ValueError(f"Volume cannot be below zero. Volume: {volume}")
-            if volume > 1000:
-                raise ValueError(f"Volume cannot be above 1000. Volume: {volume}")
+        if volume and volume < 0:
+            raise ValueError
 
         player = await self.session.client.rest.update_player(
-            session,
+            session_id,
             self.guild_id,
             volume=volume,
             no_replace=False,
@@ -860,10 +1137,12 @@ class Player:
 
         _logger.log(
             TRACE_LEVEL,
-            f"Successfully set volume to {volume} in {self.guild_id}",
+            "Successfully set volume to %s in %s",
+            volume,
+            self.guild_id,
         )
 
-    async def set_position(self, value: int) -> None:
+    async def set_position(self, value: int, /) -> None:
         """
         Set the position.
 
@@ -885,7 +1164,8 @@ class Player:
         SessionStartError
             Raised when the players session has not yet been started.
         ValueError
-            Raised when the position given is negative, or the current tracks length is greater than the length given.
+            Raised when the position given is negative,
+            or the current tracks length is greater than the length given.
         PlayerQueueError
             Raised when the queue is empty.
         RestEmptyError
@@ -897,21 +1177,21 @@ class Player:
         BuildError
             Raised when a construction of a ABC class fails.
         """
-        session = self.session._get_session_id()
+        session_id = self.session.session_id
+        if session_id is None:
+            raise errors.SessionStartError
 
         if value <= 0:
-            raise ValueError("Negative value is not allowed.")
+            raise ValueError
 
         if len(self.queue) <= 0:
-            raise errors.PlayerQueueError("Queue is empty.")
+            raise errors.PlayerQueueEmptyError
 
         if self.queue[0].info.length < value:
-            raise ValueError(
-                "A value greater than the current tracks length is not allowed.",
-            )
+            raise ValueError
 
         player = await self.session.client.rest.update_player(
-            session,
+            session_id,
             self.guild_id,
             position=value,
             no_replace=False,
@@ -922,10 +1202,16 @@ class Player:
 
         _logger.log(
             TRACE_LEVEL,
-            f"Successfully set position ({value}) to track in {self.guild_id}",
+            "Successfully set position (%s) to track in %s",
+            value,
+            self.guild_id,
         )
 
-    async def set_filters(self, filters: Filters | None = None) -> None:
+    async def set_filters(
+        self,
+        filters: builders.FiltersBuilder | None = None,
+        /,
+    ) -> None:
         """Set Filters.
 
         Set a new filter for the player.
@@ -935,10 +1221,12 @@ class Player:
         filters
             The filter to set the player with.
         """
-        session = self.session._get_session_id()
+        session_id = self.session.session_id
+        if session_id is None:
+            raise errors.SessionStartError
 
         player = await self.session.client.rest.update_player(
-            session,
+            session_id,
             self.guild_id,
             filters=filters,
             session=self.session,
@@ -946,12 +1234,13 @@ class Player:
 
         _logger.log(
             TRACE_LEVEL,
-            f"Successfully updated filters in guild {self.guild_id}",
+            "Successfully updated filters in guild %s",
+            self.guild_id,
         )
 
         self._update(player)
 
-    def set_loop(self, enable: bool | None = None) -> bool:
+    def set_loop(self, value: bool | None = None, /) -> bool:  # noqa: FBT001
         """
         Set loop.
 
@@ -965,18 +1254,23 @@ class Player:
 
         Parameters
         ----------
-        enable
-            Whether or not to enable looping. If left empty, it will toggle the current status.
+        value
+            The value to set the loop status to.
+            If left empty, it will toggle the current loop status.
         """
-        if enable:
-            self._loop = enable
+        if value is not None:
+            self._loop = value
             return self._loop
 
         self._loop = not self._loop
 
         return self._loop
 
-    async def transfer(self, session: Session) -> Player:
+    async def transfer(
+        self,
+        *,
+        session: session.Session,
+    ) -> Player:
         """Transfer.
 
         Transfer this player to another session.
@@ -996,32 +1290,40 @@ class Player:
         """
         _logger.log(
             TRACE_LEVEL,
-            f"Attempting to transfer player in {self.guild_id} from session ({self.session.name}) to session ({session.name})",
+            "Attempting to transfer player in %s from session (%s) to session (%s)",
+            self.guild_id,
+            self.session.name,
+            session.name,
         )
 
         new_player = Player(session, self.guild_id)
 
         new_player.add(self.queue)
 
-        if self.connected and self.channel_id:
+        if self.is_connected and self.channel_id:
             await self.disconnect()
 
             await new_player.connect(self.channel_id)
-            if self.is_paused is False:
+            if self.is_paused is False and self.track is not None:
                 await new_player.play()
                 await new_player.set_position(self.position)
 
         _logger.log(
             TRACE_LEVEL,
-            f"Successfully transferred player in {self.guild_id} from session ({self.session.name}) to session ({session.name})",
+            "Successfully transferred player in %s from session (%s) to session (%s)",
+            self.guild_id,
+            self.session.name,
+            session.name,
         )
 
         return new_player
 
-    def _update(self, player: player_.Player) -> None:
+    def _update(self, player: PartialPlayer, /) -> None:
         _logger.log(
             TRACE_LEVEL,
-            f"Updating player for channel: {self.channel_id} in guild: {self.guild_id}",
+            "Updating player for channel: %s in guild: %s",
+            self.channel_id,
+            self.guild_id,
         )
 
         self._volume = player.volume
@@ -1029,39 +1331,49 @@ class Player:
         self._state = player.state
         self._voice = player.voice
         self._filters = player.filters
-        self._connected = player.state.connected
+        self._track = player.track
 
-    async def _track_end_event(self, event: TrackEndEvent) -> None:
-        self.session._get_session_id()
+    async def _track_end_event(self, event: events.TrackEndEvent) -> None:
+        session_id = self.session.session_id
+        if session_id is None:
+            raise errors.SessionStartError
 
         if event.guild_id != self.guild_id:
             return
 
+        self._track = None
+
         if not self.autoplay:
             return
 
-        if (
-            event.reason != TrackEndReasonType.FINISHED
-            and event.reason != TrackEndReasonType.LOADFAILED
+        if event.reason not in (
+            track.TrackEndReasonType.FINISHED,
+            track.TrackEndReasonType.LOADFAILED,
         ):
             return
 
         _logger.log(
             TRACE_LEVEL,
-            f"Auto-playing track for channel: {self.channel_id} in guild: {self.guild_id}",
+            "Auto-playing track for channel: %s in guild: %s",
+            self.channel_id,
+            self.guild_id,
         )
 
         if len(self.queue) == 0:
             _logger.log(
                 TRACE_LEVEL,
-                f"queue is empty for channel: {self.channel_id} in guild: {self.guild_id}. Skipping.",
+                "queue is empty for channel: %s in guild: %s. Skipping.",
+                self.channel_id,
+                self.guild_id,
             )
             return
 
         if len(self.queue) == 1 and not self.loop:
             _logger.log(
                 TRACE_LEVEL,
-                f"queue is empty for channel: {self.channel_id} in guild: {self.guild_id}. Dispatching last known track.",
+                "queue is empty for channel: %s in guild: %s.",
+                self.channel_id,
+                self.guild_id,
             )
             new_event = events.QueueEmptyEvent.from_session(
                 self.session,
@@ -1069,7 +1381,7 @@ class Player:
                 old_track=self.queue[0],
             )
 
-            self.remove(0)
+            await self.remove(0)
 
             self.app.event_manager.dispatch(new_event, return_tasks=False)
 
@@ -1078,71 +1390,49 @@ class Player:
         if not self.loop:
             _logger.log(
                 TRACE_LEVEL,
-                f"Autoplay for channel: {self.channel_id} in guild: {self.guild_id}. Removing old song.",
+                "Autoplay for channel: %s in guild: %s. Removing old song.",
+                self.channel_id,
+                self.guild_id,
             )
-            self.remove(0)
+            await self.remove(0)
 
         _logger.log(
             TRACE_LEVEL,
-            f"Auto-playing next track for channel: {self.channel_id} in guild: {self.guild_id}. Track title: {self.queue[0].info.title}",
+            "Auto-playing next track for channel: %s in guild: %s. Track title: %s",
+            self.channel_id,
+            self.guild_id,
+            self.queue[0].info.title,
         )
 
         await self.play()
 
+        queue_next_event = events.QueueNextEvent.from_session(
+            self.session,
+            guild_id=self.guild_id,
+            track=self._queue[0],
+            old_track=event.track,
+        )
+
         self.app.event_manager.dispatch(
-            events.QueueNextEvent.from_session(
-                self.session,
-                self.guild_id,
-                self._queue[0],
-                event.track,
-            ),
+            queue_next_event,
             return_tasks=False,
         )
 
         _logger.log(
             TRACE_LEVEL,
-            f"Auto-playing successfully completed for channel: {self.channel_id} in guild: {self.guild_id}",
+            "Auto-playing successfully completed for channel: %s in guild: %s",
+            self.channel_id,
+            self.guild_id,
         )
 
-    async def _player_update_event(self, event: PlayerUpdateEvent) -> None:
+    async def _player_update_event(self, event: events.PlayerUpdateEvent) -> None:
         if event.guild_id != self.guild_id:
             return
 
         _logger.log(
             TRACE_LEVEL,
-            f"Updating player state in {self.guild_id}",
-        )
-
-        if not event.state.connected and self.connected:
-            await self.stop()
-
-        _logger.log(
-            TRACE_LEVEL,
-            f"Successfully updated player state in {self.guild_id}",
+            "Updating player state in %s",
+            self.guild_id,
         )
 
         self._state = event.state
-        self._connected = event.state.connected
-
-
-# MIT License
-
-# Copyright (c) 2023-present MPlatypus
-
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
-
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.

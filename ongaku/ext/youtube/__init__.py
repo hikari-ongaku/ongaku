@@ -1,15 +1,3 @@
-"""Youtube.
-
-Endpoints for the youtube source plugin.
-"""
-
-from __future__ import annotations
-
-from ongaku.ext.youtube.endpoints import fetch_youtube
-from ongaku.ext.youtube.endpoints import update_youtube
-
-__all__ = ("fetch_youtube", "update_youtube")
-
 # MIT License
 
 # Copyright (c) 2023-present MPlatypus
@@ -31,3 +19,23 @@ __all__ = ("fetch_youtube", "update_youtube")
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+"""YouTube.
+
+Endpoints for the youtube source plugin.
+"""
+
+from __future__ import annotations
+
+from ongaku.ext.youtube.endpoints import fetch_youtube
+from ongaku.ext.youtube.endpoints import fetch_youtube_oauth
+from ongaku.ext.youtube.endpoints import update_youtube
+from ongaku.ext.youtube.youtube import RefreshTokenInformation
+from ongaku.ext.youtube.youtube import YouTube
+
+__all__ = (
+    "RefreshTokenInformation",
+    "YouTube",
+    "fetch_youtube",
+    "fetch_youtube_oauth",
+    "update_youtube",
+)

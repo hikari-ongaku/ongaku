@@ -1,16 +1,3 @@
-"""
-Injection.
-
-Add injection support for arc, and tanjun.
-"""
-
-from __future__ import annotations
-
-from ongaku.ext.injection.arc import arc_ensure_player
-
-__all__ = ("arc_ensure_player",)
-
-
 # MIT License
 
 # Copyright (c) 2023-present MPlatypus
@@ -32,3 +19,13 @@ __all__ = ("arc_ensure_player",)
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+"""Injection.
+
+Add injection support for arc, and tanjun.
+"""
+
+from __future__ import annotations
+
+from ongaku.ext.injection.arc import arc_ensure_player
+
+__all__ = ("arc_ensure_player",)

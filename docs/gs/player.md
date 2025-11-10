@@ -78,7 +78,7 @@ If you have followed the guide from [Client as State](./client.md) the following
     ```
 
 !!! tip
-    When using `client.fetch_player(...)` this only attempts to search for that current player. Using `client.create_player(...)` will search for an existing player (and return it if it exists), otherwise, will just create a new player.
+    When using `client.get_player(...)` this only attempts to search for that current player. Using `client.create_player(...)` will search for an existing player (and return it if it exists), otherwise, will just create a new player.
 
 ## Getting tracks
 
@@ -110,7 +110,7 @@ Getting tracks, uses a rest method. There is a few methods of fetching a track (
     This method allows you to decode a track from its encoded state.
 
     !!! note
-        The encoded state is attached to all [track][ongaku.abc.track.Track] objects, and can be collected via `track.encoded`
+        The encoded state is attached to all [track][ongaku.track.Track] objects, and can be collected via `track.encoded`
 
     ```py
 
@@ -168,7 +168,7 @@ You can also mute and deafen the bot.
         By default, `mute` is set to `False` and `deaf` is set to `True`.
 
 !!! tip
-    Replace `channel_id` with a [GuildVoiceChannel](https://docs.hikari-py.dev/en/latest/reference/hikari/channels/#hikari.channels.GuildVoiceChannel) or a integer of the channel id!
+    Replace `channel_id` with a [GuildVoiceChannel](https://docs.hikari-py.dev/en/latest/reference/hikari/channels/#hikari.channels.GuildVoiceChannel) or a snowflake/integer of the channel ID!
 
 #### Disconnecting
 
@@ -187,7 +187,7 @@ using the play method, has two different usages.
 
     ```py
     # Add track(s) to your player.
-    await player.add(...)
+    player.add(...)
 
     # Leave .play() empty, to play the current queue.
     await player.play()
@@ -204,7 +204,11 @@ using the play method, has two different usages.
     replace the `...` with a track. Need help getting a track? check [here](#getting-tracks)
 
 !!! note
-    `.play()` does not support multiple tracks. That is why the with .add() method exists.
+    `.play()` does not support multiple tracks.
+    That is why the with `.add()` method exists.
+
+    When you call `.play()` it **will** insert itself as the first track. 
+    The current track that is playing will be moved into the second place in the queue.
 
 !!! warning
     if you attempt to call `.play()` without any tracks, the player will error out.
@@ -227,9 +231,17 @@ player.add(...)
 Pausing, allows for you to play/pause the current track playing on the bot.
 There is a few options for pausing the tracks.
 
+=== "Toggling"
+
+    The following method will change it from its current state, to the opposite state.
+
+    ```py
+    await player.pause()
+    ```
+
 === "Force playing"
 
-    The following method will force play the player, whether it is playing or not.
+    The following method will force play the player, whether it is playing.
 
     ```py
     await player.pause(False)
@@ -237,18 +249,10 @@ There is a few options for pausing the tracks.
 
 === "Force pausing"
 
-    The following method will force pause the player, whether it is playing or not.
+    The following method will force pause the player, whether it is playing.
 
     ```py
     await player.pause(True)
-    ```
-
-=== "Toggling"
-
-    The following method will change it from its current state, to the opposite state.
-
-    ```py
-    await player.pause()
     ```
 
 ### Stop
@@ -277,7 +281,7 @@ player.shuffle()
 
 Skipping songs allows for you to skip one, or multiple songs.
 
-=== "One"
+=== "Singular"
 
     The following code, simply skips a singular track.
 
@@ -292,7 +296,7 @@ Skipping songs allows for you to skip one, or multiple songs.
     The following code allows for skipping one or more tracks.
 
     ```py
-    # This will skip 3 songs in the queue, starting from the first, playing track.
+    # This will skip 3 songs in the queue, starting from the first, currently playing track.
     await player.skip(3)
     ```
 
@@ -302,10 +306,10 @@ This allows for removing tracks. You can remove it via a track object, position 
 
 === "Track"
 
-    This method allows for removing a track via its [track][ongaku.abc.track.Track] object.
+    This method allows for removing a track via its [track][ongaku.track.Track] object.
 
     ```py
-    player.remove(track)
+    await player.remove(track)
     ```
 
 === "Position"
@@ -319,13 +323,22 @@ This allows for removing tracks. You can remove it via a track object, position 
     !!! note
         Please remember, pythons lists start at 0. So this example will actually remove the track in the 4th position of the queue.
 
-!!! warning
-    If the track you remove is in the first position, it will **not** be stopped. It will continue playing.
+
+Removing the track in the first position will stop the current playing track.
+
+If you want to play the next track, you need to set the `play_next` parameter to `True`.
+
+```py
+player.remove(0, play_next=True)
+```
+
+!!! note
+    Setting the `play_next` parameter to `True`,
+    when the first track isn't being removed will have no effect on the currently playing track.
 
 ### Clear
 
-This is very similar to the [Remove](#remove).
-It removes all tracks from the queue, and stops the player.
+Clears all tracks and stops the current track from playing.
 
 ```py
 await player.clear()
@@ -333,9 +346,15 @@ await player.clear()
 
 ### Autoplay
 
-This allows you to toggle autoplay on or off.
-
 Autoplay allows for playing the next track in the queue when the previous one ends.
+
+=== "Toggling"
+
+    The following method will set autoplay to its opposite value.
+
+    ```py
+    player.set_autoplay()
+    ```
 
 === "Force enable"
 
@@ -353,34 +372,9 @@ Autoplay allows for playing the next track in the queue when the previous one en
     player.set_autoplay(False)
     ```
 
-=== "Toggling"
-
-    The following method will set autoplay to its opposite value.
-
-    ```py
-    player.set_autoplay()
-    ```
-
 ### Loop
 
-Pausing, allows for you to play/pause the current track playing on the bot.
-There is a few options for pausing the tracks.
-
-=== "Force looping"
-
-    The following method will force loop the player, whether it is looping or not.
-
-    ```py
-    player.set_loop(False)
-    ```
-
-=== "Force disable looping"
-
-    The following method will force loop the player, whether it is looping or not.
-
-    ```py
-    player.set_loop(True)
-    ```
+Looping loops the current track, indefinitely.
 
 === "Toggling"
 
@@ -390,13 +384,35 @@ There is a few options for pausing the tracks.
     player.set_loop()
     ```
 
+=== "Force looping"
+
+    The following method will force loop the player, whether it is looping.
+
+    ```py
+    player.set_loop(False)
+    ```
+
+=== "Force disable looping"
+
+    The following method will force loop the player, whether it is looping.
+
+    ```py
+    player.set_loop(True)
+    ```
+
+!!! tip
+    If `auto_play` is `False`, looping will not have any effect.
+
+!!! tip
+    If `.skip()` is used, this will move onto the next track, and loop that track instead.
+
 ### Volume
 
 This allows you to change the volume of the player.
 
 === "Change"
 
-    This allows you to change the volume of the player.
+    This changes the volume to the value set.
 
     ```py
     # The following sets the volume to half of its original.
@@ -425,6 +441,10 @@ This function allows for you to set the position of the track. This is in millis
 await player.set_position(40000)
 ```
 
+!!! warning
+    If the position is outside of the track or there is no track playing,
+    then it will result in an error.
+
 ### Filters
 
 This allows you to set or clear the current filter.
@@ -447,8 +467,3 @@ This allows you to set or clear the current filter.
 
     !!! tip
         Learn more about filters [here](./filters.md)
-
-This function, will put the track at 40 seconds.
-
-!!! warning
-    If the position is outside of the track or there is no track playing, then it will result in an error.

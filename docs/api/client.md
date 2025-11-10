@@ -1,6 +1,6 @@
 ---
 title: Client
-description: Client base
+description: Client for ongaku.
 ---
 
 # Client

@@ -1,6 +1,6 @@
 ---
 title: Events
-description: Ongaku events for hikari
+description: Events and entities related to Lavalink event objects.
 ---
 
 # Events

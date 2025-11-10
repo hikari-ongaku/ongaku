@@ -1,6 +1,6 @@
 ---
 title: Session
-description: Lavalink session handlers
+description: Session and entities related to Lavalink session objects.
 ---
 
 # Session

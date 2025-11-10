@@ -1,8 +1,8 @@
 ---
-title: Events ABC
-description: Abstract Base Classes API Reference
+title: Events
+description: Abstract event objects.
 ---
 
 # Events
 
-:::ongaku.abc.events
+::: ongaku.abc.events
