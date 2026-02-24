@@ -4,6 +4,7 @@ import datetime
 import typing
 from unittest import mock
 
+import hikari
 import pytest
 from hikari.events.voice_events import VoiceServerUpdateEvent
 from hikari.events.voice_events import VoiceStateUpdateEvent
@@ -98,7 +99,9 @@ class TestPlayer:
 
         # Test Working
 
-        voice = Voice("token", "raw_endpoint", "session_id")
+        voice = Voice(
+            "token", "raw_endpoint", "session_id", hikari.Snowflake(987654321)
+        )
 
         with (
             mock.patch.object(
@@ -210,7 +213,9 @@ class TestPlayer:
             patched_update.assert_called_once_with(
                 ongaku_session._get_session_id(),
                 Snowflake(1234567890),
-                voice=Voice("token", "raw_endpoint", "session_id"),
+                voice=Voice(
+                    "token", "raw_endpoint", "session_id", hikari.Snowflake(987654321)
+                ),
                 no_replace=False,
                 session=ongaku_session,
             )
@@ -907,7 +912,7 @@ class TestPlayer:
             mock.patch.object(
                 new_player,
                 "_channel_id",
-                return_value=Snowflake(987654321),
+                Snowflake(987654321),
             ),
             mock.patch("ongaku.player.Player.disconnect") as patch_disconnect,
         ):
@@ -919,7 +924,9 @@ class TestPlayer:
             patched_update.assert_any_call(
                 ongaku_session._get_session_id(),
                 Snowflake(1234567890),
-                voice=Voice("token", "raw_endpoint", "session_id"),
+                voice=Voice(
+                    "token", "raw_endpoint", "session_id", hikari.Snowflake(987654321)
+                ),
                 no_replace=False,
                 session=new_session,
             )
@@ -954,7 +961,7 @@ class TestPlayer:
         assert new_player.connected is False
 
         state = player_.State(datetime.datetime.now(), 1, True, 2)
-        voice = player_.Voice("token", "endpoint", "session_id")
+        voice = player_.Voice("token", "endpoint", "session_id", hikari.Snowflake(123))
         replacement_player = player_.Player(
             Snowflake(1234567890),
             None,

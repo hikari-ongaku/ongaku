@@ -3,6 +3,7 @@ from __future__ import annotations
 import typing
 from unittest import mock
 
+import hikari
 import pytest
 from hikari.snowflakes import Snowflake
 
@@ -747,7 +748,9 @@ class TestRestPlayer:
                 end_time=2,
                 volume=3,
                 paused=False,
-                voice=player.Voice("token", "endpoint", "session_id"),
+                voice=player.Voice(
+                    "token", "endpoint", "session_id", hikari.Snowflake(123)
+                ),
                 no_replace=False,
                 session=ongaku_session,
             )
@@ -772,6 +775,7 @@ class TestRestPlayer:
                         "token": "token",
                         "endpoint": "endpoint",
                         "sessionId": "session_id",
+                        "channelId": "123",
                     },
                 },
                 params={"noReplace": "false"},
@@ -813,7 +817,9 @@ class TestRestPlayer:
                 volume=3,
                 paused=False,
                 filters=ongaku_filters,
-                voice=player.Voice("token", "endpoint", "session_id"),
+                voice=player.Voice(
+                    "token", "endpoint", "session_id", hikari.Snowflake(123)
+                ),
                 no_replace=False,
             )
 

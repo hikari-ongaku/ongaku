@@ -169,6 +169,7 @@ class Voice(abc.ABC):
     """
 
     __slots__: typing.Sequence[str] = (
+        "_channel_id",
         "_endpoint",
         "_session_id",
         "_token",
@@ -189,6 +190,11 @@ class Voice(abc.ABC):
         """The Discord voice session id to authenticate with."""
         return self._session_id
 
+    @property
+    def channel_id(self) -> hikari.Snowflake | None:
+        """The channel the bot is currently connected to."""
+        return self._channel_id
+
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Voice):
             return False
@@ -199,7 +205,16 @@ class Voice(abc.ABC):
         if self.endpoint != other.endpoint:
             return False
 
-        return self.session_id == other.session_id
+        if self.session_id != other.session_id:
+            return False
+
+        return self.channel_id == other.channel_id
+
+    def __str__(self) -> str:
+        return f"Voice(token={self.token}, endpoint={self.endpoint}, session_id={self.session_id}, channel_id={self.channel_id})"
+
+    def __repr__(self) -> str:
+        return f"Voice(token={self.token}, endpoint={self.endpoint}, session_id={self.session_id}, channel_id={self.channel_id})"
 
 
 # MIT License
