@@ -1,9 +1,9 @@
-# ruff: noqa: D100, D101, D102, D103
 from __future__ import annotations
 
 import datetime
 from typing import TYPE_CHECKING
 
+import hikari
 from hikari.snowflakes import Snowflake
 
 from ongaku.impl.player import Player
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 def test_player(ongaku_track: Track, ongaku_filters: Filters):
     state = State(datetime.datetime.now(), 2, True, 3)
-    voice = Voice("token", "endpoint", "session_id")
+    voice = Voice("token", "endpoint", "session_id", hikari.Snowflake(123))
     player = Player(
         Snowflake(1234567890),
         ongaku_track,
@@ -49,8 +49,9 @@ def test_player_state():
 
 
 def test_player_voice():
-    player_voice = Voice("token", "endpoint", "session_id")
+    player_voice = Voice("token", "endpoint", "session_id", hikari.Snowflake(123))
 
     assert player_voice.token == "token"
     assert player_voice.endpoint == "endpoint"
     assert player_voice.session_id == "session_id"
+    assert player_voice.channel_id == hikari.Snowflake(123)

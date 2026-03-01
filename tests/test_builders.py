@@ -1,4 +1,3 @@
-# ruff: noqa: D100, D101, D102, D103
 from __future__ import annotations
 
 import datetime
@@ -369,6 +368,19 @@ class TestBuilderPlayer:
         assert parsed_result.token == "token"
         assert parsed_result.endpoint == "endpoint"
         assert parsed_result.session_id == "session_id"
+        assert parsed_result.channel_id == hikari.Snowflake(123)
+
+    def test_build_player_voice_with_null_fields(self, builder: EntityBuilder):
+        payload = dict(payloads.PLAYER_VOICE_PAYLOAD)
+
+        payload["channelId"] = None
+
+        parsed_result = builder.build_player_voice(payload)
+
+        assert parsed_result.token == "token"
+        assert parsed_result.endpoint == "endpoint"
+        assert parsed_result.session_id == "session_id"
+        assert parsed_result.channel_id is None
 
 
 class TestBuilderPlaylist:

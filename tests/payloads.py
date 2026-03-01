@@ -141,6 +141,7 @@ PLAYER_VOICE_PAYLOAD: PayloadT = {
     "token": "token",
     "endpoint": "endpoint",
     "sessionId": "session_id",
+    "channelId": "123",
 }
 
 PLAYER_PAYLOAD: PayloadT = {

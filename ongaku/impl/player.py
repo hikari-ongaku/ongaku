@@ -55,10 +55,17 @@ class State(player_.State):
 
 
 class Voice(player_.Voice):
-    def __init__(self, token: str, endpoint: str, session_id: str) -> None:
+    def __init__(
+        self,
+        token: str,
+        endpoint: str,
+        session_id: str,
+        channel_id: hikari.Snowflake | None,
+    ) -> None:
         self._token = token
         self._endpoint = endpoint
         self._session_id = session_id
+        self._channel_id = channel_id
 
 
 # MIT License

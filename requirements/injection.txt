@@ -1,2 +1,0 @@
-hikari-arc ~= 2.1
-hikari-tanjun ~= 2.17.0

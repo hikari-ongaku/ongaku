@@ -932,7 +932,13 @@ class EntityBuilder:
 
         _logger.log(TRACE_LEVEL, f"Decoding payload: {payload} into Player Voice")
 
-        return player.Voice(data["token"], data["endpoint"], data["sessionId"])
+        channel_id = None
+        if (channel_id_payload := data.get("channelId")) is not None:
+            channel_id = hikari.Snowflake(int(channel_id_payload))
+
+        return player.Voice(
+            data["token"], data["endpoint"], data["sessionId"], channel_id
+        )
 
     # playlist
 

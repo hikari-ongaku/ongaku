@@ -754,6 +754,9 @@ class RESTClient:
                         "token": voice.token,
                         "endpoint": voice.endpoint,
                         "sessionId": voice.session_id,
+                        "channelId": str(voice.channel_id)
+                        if voice.channel_id is not None
+                        else None,
                     },
                 },
             )

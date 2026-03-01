@@ -280,6 +280,7 @@ class Player:
             token=server_event.token,
             endpoint=server_event.raw_endpoint,
             session_id=state_event.state.session_id,
+            channel_id=self.channel_id,
         )
 
         self._voice = new_voice

@@ -10,6 +10,9 @@ hide:
 
 All the changelogs for `hikari-ongaku`.
 
+## **v1.0.4**
+* Add Lavalink v4.2.0 support (DAVE)
+
 ## **v1.0.3**
 * Youtube extension: Youtube now has an extension, for setting and getting the access tokens.
 * Fix logger: Logging now works properly.
