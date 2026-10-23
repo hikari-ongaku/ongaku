@@ -64,6 +64,7 @@ class Player:
         "_session",
         "_session_id",
         "_state",
+        "_track",
         "_voice",
         "_volume",
     )
@@ -80,6 +81,7 @@ class Player:
         self._is_paused = True
         self._voice: player_.Voice | None = None
         self._state: player_.State | None = None
+        self._track: track_.Track | None = None
         self._queue: typing.MutableSequence[track_.Track] = []
         self._filters: Filters | None = None
         self._connected: bool = False
@@ -145,6 +147,19 @@ class Player:
         return self._is_paused
 
     @property
+    def is_playing(self) -> bool:
+        """Is playing.
+
+        Whether the player is connected, and has a track loaded.
+
+        !!! note
+            This remains `True` while the player is paused, as long as a track
+            is still loaded. Use [`is_paused`][ongaku.player.Player.is_paused]
+            to check whether playback is currently paused.
+        """
+        return self._connected and self._track is not None
+
+    @property
     def autoplay(self) -> bool:
         """Autoplay.
 
@@ -164,6 +179,15 @@ class Player:
         Whether or not the player is connected to discords gateway.
         """
         return self._connected
+
+    @property
+    def track(self) -> track_.Track | None:
+        """The track the player is currently playing.
+
+        !!! note
+            If the track is `None` then there is no current track playing.
+        """
+        return self._track
 
     @property
     def queue(self) -> t.Sequence[track_.Track]:
@@ -1027,6 +1051,7 @@ class Player:
 
         self._volume = player.volume
         self._is_paused = player.is_paused
+        self._track = player.track
         self._state = player.state
         self._voice = player.voice
         self._filters = player.filters
@@ -1037,6 +1062,8 @@ class Player:
 
         if event.guild_id != self.guild_id:
             return
+
+        self._track = None
 
         if not self.autoplay:
             return

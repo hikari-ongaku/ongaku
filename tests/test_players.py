@@ -80,9 +80,13 @@ class TestPlayer:
 
         assert new_player.is_paused is True
 
+        assert new_player.is_playing is False
+
         assert new_player.autoplay is True
 
         assert new_player.connected is False
+
+        assert new_player.track is None
 
         assert isinstance(new_player.queue, typing.Sequence)
         assert new_player.queue == []
@@ -950,11 +954,17 @@ class TestPlayer:
             )
 
     @pytest.mark.asyncio
-    async def test_update(self, ongaku_session: Session, ongaku_filters: Filters):
+    async def test_update(
+        self,
+        ongaku_session: Session,
+        ongaku_track: Track,
+        ongaku_filters: Filters,
+    ):
         new_player = Player(ongaku_session, Snowflake(1234567890))
 
         assert new_player.volume == -1
         assert new_player.is_paused is True
+        assert new_player.track is None
         assert new_player.state is None
         assert new_player.voice is None
         assert new_player.filters is None
@@ -964,7 +974,7 @@ class TestPlayer:
         voice = player_.Voice("token", "endpoint", "session_id", hikari.Snowflake(123))
         replacement_player = player_.Player(
             Snowflake(1234567890),
-            None,
+            ongaku_track,
             10,
             False,
             state,
@@ -976,10 +986,60 @@ class TestPlayer:
 
         assert new_player.volume == 10
         assert new_player.is_paused is False
+        assert new_player.track == ongaku_track
         assert new_player.state == state
         assert new_player.voice == voice
         assert new_player.filters == ongaku_filters
         assert new_player.connected is True
+
+    @pytest.mark.asyncio
+    async def test_is_playing(self, ongaku_session: Session, ongaku_track: Track):
+        new_player = Player(ongaku_session, Snowflake(1234567890))
+
+        voice = player_.Voice("token", "endpoint", "session_id", hikari.Snowflake(123))
+        connected = player_.State(datetime.datetime.now(), 1, True, 2)
+        disconnected = player_.State(datetime.datetime.now(), 1, False, 2)
+
+        def update(
+            track: Track | None,
+            paused: bool,
+            state: player_.State,
+        ) -> None:
+            new_player._update(
+                player_.Player(
+                    Snowflake(1234567890),
+                    track,
+                    10,
+                    paused,
+                    state,
+                    voice,
+                    None,
+                ),
+            )
+
+        # A fresh player is not connected, and has no track loaded.
+        assert new_player.is_playing is False
+
+        # Connected, but without a track loaded.
+        update(None, False, connected)
+
+        assert new_player.is_playing is False
+
+        # Connected, with a track loaded.
+        update(ongaku_track, False, connected)
+
+        assert new_player.is_playing is True
+
+        # A paused player still counts as playing, as a track is loaded.
+        update(ongaku_track, True, connected)
+
+        assert new_player.is_paused is True
+        assert new_player.is_playing is True
+
+        # A track alone is not enough, the player must also be connected.
+        update(ongaku_track, False, disconnected)
+
+        assert new_player.is_playing is False
 
     @pytest.mark.asyncio
     async def test_player_update_event(self, ongaku_session: Session):
@@ -1183,6 +1243,45 @@ class TestPlayerTrackEndEvent:
             await new_player._track_end_event(event)
 
             patched_dispatch.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_track_cleared(self, ongaku_session: Session, ongaku_track: Track):
+        new_player = Player(ongaku_session, Snowflake(1234567890))
+
+        # Toggle autoplay off, so no new track is started.
+        new_player.set_autoplay()
+
+        assert new_player.autoplay is False
+
+        event = events.TrackEndEvent.from_session(
+            ongaku_session,
+            Snowflake(1234567890),
+            track=mock.Mock(encoded="encoded"),
+            reason=TrackEndReasonType.FINISHED,
+        )
+        other_guild_event = events.TrackEndEvent.from_session(
+            ongaku_session,
+            Snowflake(1),
+            track=mock.Mock(encoded="encoded"),
+            reason=TrackEndReasonType.FINISHED,
+        )
+
+        with mock.patch.object(
+            ongaku_session,
+            "_get_session_id",
+            return_value="session_id",
+        ):
+            new_player._track = ongaku_track
+
+            # An event for another guild must leave the track untouched.
+            await new_player._track_end_event(other_guild_event)
+
+            assert new_player.track == ongaku_track
+
+            # The track is cleared, even when autoplay will not start a new one.
+            await new_player._track_end_event(event)
+
+            assert new_player.track is None
 
     @pytest.mark.asyncio
     async def test_empty_queue(self, ongaku_session: Session):
