@@ -54,7 +54,7 @@ dev = [
     "pyright ~= 1.1.408"
 ]
 doc = [
-    "black ~= 26.1.0",
+    "black>=26.1,<26.11",
     "mkdocs ~= 1.6.0",
     "mkdocs-autorefs ~= 1.4.0",
     "mkdocs-material[imaging] ~= 9.6.23",
