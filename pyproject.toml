@@ -50,7 +50,7 @@ speedups = [
 
 [dependency-groups]
 dev = [
-    "nox[uv] ~= 2026.2.9",
+    "nox[uv] >= 2026.2.9,< 2026.9.0",
     "pyright ~= 1.1.408"
 ]
 doc = [
